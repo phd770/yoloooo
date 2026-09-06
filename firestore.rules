@@ -1,0 +1,140 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isValidString(text, maxLen) {
+      return text is string && text.size() <= maxLen;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name']) &&
+             isValidString(data.name, 50) &&
+             (!('pin' in data) || isValidString(data.pin, 10)) &&
+             (!('gender' in data) || data.gender is string) &&
+             (!('points' in data) || data.points is number) &&
+             (!('customButtons' in data) || data.customButtons is list) &&
+             (!('stealthMode' in data) || data.stealthMode is bool) &&
+             (!('highestTierReached' in data) || data.highestTierReached is number) &&
+             (!('lastSeen' in data) || data.lastSeen is number) &&
+             (!('isOnline' in data) || data.isOnline is bool);
+    }
+
+    function isValidMission(data) {
+      return data.keys().hasAll(['sender', 'receiver', 'title', 'shortText', 'status', 'createdAt']) &&
+             isValidString(data.sender, 50) &&
+             isValidString(data.receiver, 50) &&
+             isValidString(data.title, 200) &&
+             isValidString(data.shortText, 500) &&
+             (!('fullText' in data) || isValidString(data.fullText, 2000)) &&
+             data.status in ['sent', 'locked', 'opened', 'completed', 'rejected', 'saved_for_later', 'pending'] &&
+             data.createdAt is number &&
+             (!('unlockAt' in data) || data.unlockAt is number) &&
+             (!('pointsValue' in data) || data.pointsValue is number) &&
+             (!('isSpecialRequest' in data) || data.isSpecialRequest is bool) &&
+             (!('specialRequestLevel' in data) || data.specialRequestLevel is number) &&
+             (!('isMandatory' in data) || data.isMandatory is bool) &&
+             (!('response' in data) || isValidString(data.response, 1000)) &&
+             (!('tier' in data) || data.tier is number);
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['mode', 'chemistryScore', 'streak', 'updatedAt']) &&
+             data.mode in ['together', 'remote'] &&
+             data.chemistryScore is number &&
+             data.streak is number &&
+             (!('heatMeter' in data) || data.heatMeter is number) &&
+             (!('lastComboDate' in data) || data.lastComboDate is number) &&
+             (!('dailyChallenge' in data) || data.dailyChallenge is map) &&
+             data.updatedAt is number;
+    }
+
+    function isValidChatSession(data) {
+      return data.keys().hasAll(['participants', 'privacyMode', 'lastMessageAt']) &&
+             data.participants is list &&
+             data.privacyMode in ['normal', 'discreet', 'super_discreet'] &&
+             data.lastMessageAt is number &&
+             (!('autoExpireTimer' in data) || data.autoExpireTimer == null || data.autoExpireTimer is number) &&
+             (!('isDeleted' in data) || data.isDeleted is bool) &&
+             (!('isPing' in data) || data.isPing is bool) &&
+             (!('deletedBy' in data) || data.deletedBy == null || data.deletedBy is string) &&
+             (!('deletedAt' in data) || data.deletedAt == null || data.deletedAt is number) &&
+             (!('deletedAtByUser' in data) || data.deletedAtByUser is map) &&
+             (!('typingUsers' in data) || data.typingUsers is map);
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['sessionId', 'senderId', 'receiverId', 'createdAt']) &&
+             data.sessionId is string &&
+             data.senderId is string &&
+             data.receiverId is string &&
+             data.createdAt is number &&
+             (!('text' in data) || data.text is string) &&
+             (!('imageUrl' in data) || data.imageUrl is string) &&
+             (!('videoUrl' in data) || data.videoUrl is string) &&
+             (!('mediaType' in data) || data.mediaType is string) &&
+             (!('replyToId' in data) || data.replyToId is string) &&
+             (!('replyToText' in data) || data.replyToText is string) &&
+             (!('expiresAt' in data) || data.expiresAt is number) &&
+             (!('isViewOnce' in data) || data.isViewOnce is bool) &&
+             (!('viewDuration' in data) || data.viewDuration is number) &&
+             (!('viewedAt' in data) || data.viewedAt is number) &&
+             (!('isDeleted' in data) || data.isDeleted is bool) &&
+             (!('isPing' in data) || data.isPing is bool) &&
+             (!('deletedBy' in data) || data.deletedBy is string) &&
+             (!('deletedAt' in data) || data.deletedAt is number);
+    }
+
+    function isValidVaultMedia(data) {
+      return data.keys().hasAll(['id', 'type', 'name', 'storagePath', 'url', 'createdAt']) &&
+             data.id is string &&
+             data.type in ['image', 'video'] &&
+             data.name is string &&
+             data.storagePath is string &&
+             data.url is string &&
+             data.createdAt is number &&
+             (!('thumbnail' in data) || data.thumbnail == null || data.thumbnail is string);
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isValidUser(request.resource.data);
+      allow update: if isValidUser(request.resource.data);
+    }
+
+    match /missions/{missionId} {
+      allow read: if true;
+      allow create: if isValidMission(request.resource.data);
+      allow update: if isValidMission(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if true;
+      allow create: if isValidSession(request.resource.data);
+      allow update: if isValidSession(request.resource.data);
+    }
+
+    match /chat_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if isValidChatSession(request.resource.data);
+      allow update: if isValidChatSession(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /chat_messages/{messageId} {
+      allow read: if true;
+      allow create: if isValidChatMessage(request.resource.data);
+      allow update: if isValidChatMessage(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /vault/{mediaId} {
+      allow read: if true;
+      allow create: if isValidVaultMedia(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /games/{gameId} {
+      allow read, write: if true;
+    }
+  }
+}
