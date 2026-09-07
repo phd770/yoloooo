@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../lib/store';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Clock, Send, Image as ImageIcon, X, Trash2, Shield, EyeOff, Eye, Flame, Camera, Check, CheckCheck, HelpCircle, Reply, FolderLock, Baby , Edit2, MapPin, Mic, Square, Smile, ChevronRight, Video, Phone, Info, Gamepad2, BellRing } from 'lucide-react';
+import { ShieldAlert, Clock, Send, Image as ImageIcon, X, Trash2, Shield, EyeOff, Eye, Flame, Camera, Check, CheckCheck, HelpCircle, Reply, FolderLock, Baby , Edit2, MapPin, Mic, Square, Smile, ArrowRight, ChevronDown, Video, Phone, Info, Gamepad2, BellRing } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
@@ -100,21 +100,13 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
     if (!el) return;
     
     const currentScroll = el.scrollTop;
-    const prevScroll = lastScrollTopRef.current;
-    const scrollingDown = currentScroll > prevScroll;
     lastScrollTopRef.current = currentScroll;
     
     const distanceToBottom = el.scrollHeight - currentScroll - el.clientHeight;
     const atBottom = distanceToBottom < 120;
     
     isAtBottomRef.current = atBottom;
-    
-    // Use scrolling direction for menu visibility (isAtBottom state)
-    if (scrollingDown || atBottom) {
-      setIsAtBottom(true);
-    } else if (currentScroll < prevScroll - 10) {
-      setIsAtBottom(false);
-    }
+    setIsAtBottom(atBottom);
   };
   
   useEffect(() => {
@@ -264,11 +256,19 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const shouldStopRecordingRef = useRef(false);
+
+  const getAudioMimeType = () => {
+    const supportedTypes = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'];
+    return supportedTypes.find(type => MediaRecorder.isTypeSupported(type)) || '';
+  };
 
   const startRecording = async () => {
+    shouldStopRecordingRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const mimeType = getAudioMimeType();
+      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -277,7 +277,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
         setIsUploading(true);
         try {
           const reader = new FileReader();
@@ -298,6 +298,9 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
       mediaRecorder.start();
       setIsRecording(true);
       playSound('click');
+      if (shouldStopRecordingRef.current) {
+        mediaRecorder.stop();
+      }
     } catch (err) {
       console.error("Error accessing microphone:", err);
       toast.error('אין גישה למיקרופון');
@@ -305,13 +308,20 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    shouldStopRecordingRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
       playSound('send');
     }
   };
+
+  useEffect(() => () => {
+    shouldStopRecordingRef.current = true;
+    mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop();
+  }, []);
 
   const handleShareLocation = async () => {
     if (!navigator.geolocation) {
@@ -495,29 +505,29 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
     : '';
 
   return (
-    <div className={`flex flex-col h-full w-full bg-slate-50 relative overflow-x-hidden pb-0`}>
-      <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative overflow-hidden bg-white">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-x-hidden bg-slate-50 pb-0">
+      <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col overflow-hidden bg-white">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#dbdbdb] bg-white z-10 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             {onBack && (
               <button 
                 onClick={onBack} 
-                className="flex items-center gap-1 py-1.5 px-2.5 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all text-slate-800 font-bold text-xs shadow-xs cursor-pointer shrink-0"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-800 transition-all hover:bg-slate-200 active:scale-95"
                 title="חזרה לבית"
+                aria-label="חזרה לבית"
               >
-                <ChevronRight size={18} strokeWidth={2.5} />
-                <span>בית</span>
+                <ArrowRight size={18} strokeWidth={2.5} />
               </button>
             )}
             {onNavigate && (
               <button 
                 onClick={() => onNavigate('games')} 
-                className="flex items-center gap-1 py-1.5 px-2 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all text-slate-800 font-bold text-xs shadow-xs cursor-pointer shrink-0"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-800 transition-all hover:bg-slate-200 active:scale-95"
                 title="משחקים"
+                aria-label="משחקים"
               >
                 <Gamepad2 size={16} strokeWidth={2} />
-                <span>משחקים</span>
               </button>
             )}
             <div className="flex items-center gap-2 cursor-pointer min-w-0">
@@ -643,7 +653,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
           id="chat-scroll-container" 
           onScroll={handleScroll}
           style={{ overflowAnchor: 'none' }}
-          className="touch-pan-y flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 flex flex-col items-stretch bg-transparent overscroll-contain relative z-10"
+          className="relative z-10 flex min-h-0 flex-1 touch-pan-y flex-col items-stretch gap-3 overflow-y-auto overflow-x-hidden overscroll-contain bg-transparent px-3 py-4 sm:px-4"
         >
           {!!(chatSession?.deletedAtByUser?.[currentUser?.id || ''] || chatSession?.isDeleted) && (
             <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
@@ -942,9 +952,9 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
               const el = chatContainerRef.current;
               if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
             }}
-            className="absolute bottom-20 right-4 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 z-40 transition-all"
+            className="absolute bottom-28 right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-lg backdrop-blur-md transition-all hover:text-slate-900 sm:bottom-20 sm:right-4"
           >
-            <ChevronRight size={20} className="rotate-90" />
+            <ChevronDown size={20} />
           </button>
         )}
 
@@ -974,7 +984,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
         )}
 
         {/* Input */}
-        <div className="p-2 bg-white relative">
+        <div className="relative shrink-0 bg-white p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           {showDurationSelector && isViewOnce && (
             <div className="absolute bottom-full right-4 mb-2 bg-white border border-[#dbdbdb] rounded-xl shadow-lg flex flex-wrap gap-1 p-2 w-64 z-50">
               <div className="w-full text-xs text-[#718096] mb-1 text-center">זמן צפייה:</div>
@@ -1007,7 +1017,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
           )}
           
 
-          <form onSubmit={handleSend} className="flex items-end gap-2 bg-white p-1 pb-6 md:pb-4">
+          <form onSubmit={handleSend} className="flex items-end gap-1 bg-white p-1 md:gap-2">
             <button
               type="button"
               onClick={handlePing}
@@ -1040,12 +1050,21 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
                   <>
                     <button 
                       type="button"
-                      onPointerDown={(e) => { e.preventDefault(); startRecording(); }}
-                      onPointerUp={(e) => { e.preventDefault(); stopRecording(); }}
-                      onPointerLeave={(e) => { if (isRecording) stopRecording(); }}
-                      className={`p-2 cursor-pointer transition-colors ${isRecording ? 'text-red-500 animate-pulse bg-red-50 rounded-full' : 'text-black'}`}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        void startRecording();
+                      }}
+                      onPointerUp={(e) => {
+                        e.preventDefault();
+                        stopRecording();
+                      }}
+                      onPointerCancel={stopRecording}
+                      className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-full p-2 transition-colors ${isRecording ? 'animate-pulse bg-red-50 text-red-500' : 'text-black'}`}
+                      title="לחיצה ממושכת להקלטה קולית"
+                      aria-label="לחיצה ממושכת להקלטה קולית"
                     >
-                      <Mic size={24} strokeWidth={1.5} />
+                      {isRecording ? <Square size={20} fill="currentColor" /> : <Mic size={24} strokeWidth={1.5} />}
                     </button>
                     <label className="p-2 text-black cursor-pointer transition-colors relative">
                       <input type="file" accept="image/*,video/*" className="hidden" onChange={handleMediaUpload} disabled={isUploading} />
