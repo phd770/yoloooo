@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../lib/store';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldAlert, Clock, Send, Image as ImageIcon, X, Trash2, Shield, EyeOff, Eye, Flame, Camera, Check, CheckCheck, HelpCircle, Reply, FolderLock, Baby , Edit2, MapPin, Mic, Square, Smile, ChevronRight, Video, Phone, Info, Gamepad2 } from 'lucide-react';
+import { ShieldAlert, Clock, Send, Image as ImageIcon, X, Trash2, Shield, EyeOff, Eye, Flame, Camera, Check, CheckCheck, HelpCircle, Reply, FolderLock, Baby , Edit2, MapPin, Mic, Square, Smile, ChevronRight, Video, Phone, Info, Gamepad2, BellRing } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
@@ -238,6 +238,22 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
       const ta = document.getElementById('chat-input-textarea');
       if (ta) ta.style.height = '44px';
       playSound('send');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handlePing = async () => {
+    if (isSending || isUploading || !partner) return;
+
+    setIsSending(true);
+    try {
+      await sendMessage(`🔔 ${currentUser?.name || 'השותף/ה'} קורא/ת לך`, undefined, undefined, false, undefined, undefined, undefined, true);
+      toast.success(`התראה נשלחה ל${partner.name}`);
+      playSound('send');
+    } catch (error) {
+      console.error('Ping failed:', error);
+      toast.error('לא הצלחנו לשלוח התראה');
     } finally {
       setIsSending(false);
     }
@@ -992,6 +1008,16 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
           
 
           <form onSubmit={handleSend} className="flex items-end gap-2 bg-white p-1 pb-6 md:pb-4">
+            <button
+              type="button"
+              onClick={handlePing}
+              disabled={isSending || isUploading}
+              className="flex h-10 w-10 shrink-0 items-center justify-center self-end rounded-full text-[#f59e0b] transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="שלח התראה לשותף/ה"
+              aria-label="שלח התראה לשותף/ה"
+            >
+              <BellRing size={21} />
+            </button>
             <div className="bg-[#3797f0] text-white rounded-full cursor-pointer self-end mb-0.5 shrink-0 flex items-center justify-center relative w-10 h-10 overflow-hidden">
               <input type="file" accept="image/*,video/*" className="absolute inset-0 opacity-0 cursor-pointer z-20" onChange={handleMediaUpload} disabled={isUploading} />
               <Camera size={22} className={`fill-current text-white relative z-10 ${isUploading ? 'animate-pulse' : ''}`} />
