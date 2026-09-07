@@ -790,11 +790,11 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
                     ) : (
                       <div className="space-y-1">
                         {msg.imageUrl && (
-                          <div className="relative group">
+                            <div className={`relative flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
                             <img 
                               src={msg.imageUrl} 
                               alt="Media" 
-                              className="rounded-xl max-w-[240px] h-auto mb-2 min-h-[100px] object-cover bg-slate-100" 
+                              className="block max-w-[min(240px,72vw)] rounded-xl object-cover bg-slate-100"
                               onLoad={() => {
                                 const chatContainer = chatContainerRef.current;
                                 if (chatContainer && isAtBottomRef.current) {
@@ -819,7 +819,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
                           </div>
                         )}
                         {msg.audioUrl && (
-                          <div className={`relative group mb-2 p-2 rounded-xl ${isMe ? 'bg-white/20' : 'bg-[#f1f5f9]'} max-w-[240px] flex items-center gap-2`}>
+                          <div className={`relative group mb-2 flex max-w-[min(240px,72vw)] items-center gap-2 rounded-xl p-2 ${isMe ? 'self-end bg-white/20' : 'self-start bg-[#f1f5f9]'}`}>
                             <audio 
                               src={msg.audioUrl} 
                               controls 
@@ -857,12 +857,12 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
                           </div>
                         )}
                         {msg.videoUrl && (
-                          <div className="relative group">
+                          <div className={`relative flex ${isMe ? 'justify-end' : 'justify-start'} group`}>
                             <video 
                               src={msg.videoUrl} 
                               controls 
                               playsInline 
-                              className="rounded-xl max-w-[240px] h-auto mb-2 min-h-[100px] bg-slate-100" 
+                              className="block max-w-[min(240px,72vw)] rounded-xl bg-slate-100"
                               onLoadedData={() => {
                                 const chatContainer = document.getElementById('chat-scroll-container');
                                 if (chatContainer && chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 250) {
@@ -952,7 +952,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
               const el = chatContainerRef.current;
               if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
             }}
-            className="absolute bottom-28 right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-lg backdrop-blur-md transition-all hover:text-slate-900 sm:bottom-20 sm:right-4"
+            className="absolute bottom-28 left-1/2 z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-lg backdrop-blur-md transition-all hover:text-slate-900 sm:bottom-20"
           >
             <ChevronDown size={20} />
           </button>
