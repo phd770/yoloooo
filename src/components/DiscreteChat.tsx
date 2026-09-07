@@ -505,7 +505,14 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
     : '';
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-x-hidden bg-slate-50 pb-0">
+    <div
+      className="flex h-full min-h-0 w-full flex-col overflow-x-hidden bg-slate-50 pb-0"
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('button, input, textarea, a, audio, video, label')) return;
+        window.dispatchEvent(new CustomEvent('openChatMenu'));
+      }}
+    >
       <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col overflow-hidden bg-white">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#dbdbdb] bg-white z-10 shrink-0">
@@ -704,7 +711,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
                 transition={{ duration: 0.15 }}
                 className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} transition-colors duration-500`}
               >
-                <div className="group relative flex items-center gap-2 max-w-[85%]">
+                <div className="group relative flex max-w-[calc(100%-0.5rem)] items-center gap-2">
                   {!isMe && (
                     <>
                     <button onClick={() => setActiveMessageMenu(activeMessageMenu === msg.id ? null : msg.id)} className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 sm:p-3 -mx-2 text-[#a0aec0] hover:text-yellow-500 active:bg-gray-100 rounded-full transition-all" title="הגב באימוג'י">
@@ -751,7 +758,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
 
                   <div 
                     onDoubleClick={(e) => { e.stopPropagation(); reactToMessage(msg.id, '❤️'); }}
-                    className={`rounded-3xl px-4 py-2.5 flex flex-col relative max-w-full ${
+                    className={`relative flex max-w-full min-w-0 flex-col rounded-3xl px-3 py-2.5 sm:px-4 ${
                     isMe 
                       ? 'bg-[#3797f0] text-white' 
                       : 'bg-[#efefef] text-black'
@@ -794,7 +801,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
                             <img 
                               src={msg.imageUrl} 
                               alt="Media" 
-                              className="block max-w-[min(240px,72vw)] rounded-xl object-cover bg-slate-100"
+                              className="block h-auto max-h-[55vh] w-auto max-w-full rounded-xl object-contain bg-slate-100"
                               onLoad={() => {
                                 const chatContainer = chatContainerRef.current;
                                 if (chatContainer && isAtBottomRef.current) {
@@ -862,7 +869,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
                               src={msg.videoUrl} 
                               controls 
                               playsInline 
-                              className="block max-w-[min(240px,72vw)] rounded-xl bg-slate-100"
+                              className="block h-auto max-h-[55vh] w-auto max-w-full rounded-xl bg-slate-100"
                               onLoadedData={() => {
                                 const chatContainer = document.getElementById('chat-scroll-container');
                                 if (chatContainer && chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 250) {

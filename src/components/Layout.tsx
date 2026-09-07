@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, Bell, History, Settings, ShoppingBag, Award, MessageCircle, FolderLock, Gamepad2 } from 'lucide-react';
+import { Home, Bell, History, Settings, ShoppingBag, Award, MessageCircle, FolderLock, Gamepad2, X } from 'lucide-react';
 import { useApp } from '../lib/store';
 import { motion } from 'motion/react';
 import { playSound } from '../lib/sounds';
@@ -36,6 +36,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   ).length;
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [gamesWithMyTurn, setGamesWithMyTurn] = useState<number>(0);
 
   const gameId = useMemo(() => {
@@ -112,6 +113,16 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       document.removeEventListener('focusout', handleFocusOut);
     };
   }, []);
+
+  React.useEffect(() => {
+    const openChatMenu = () => setIsChatMenuOpen(true);
+    window.addEventListener('openChatMenu', openChatMenu);
+    return () => window.removeEventListener('openChatMenu', openChatMenu);
+  }, []);
+
+  React.useEffect(() => {
+    if (activeTab !== 'chat' || isKeyboardOpen) setIsChatMenuOpen(false);
+  }, [activeTab, isKeyboardOpen]);
 
   React.useEffect(() => {
     const totalUnread = unreadChatCount + pendingCount;
@@ -231,8 +242,18 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       
 
 
-      {activeTab !== 'chat' && !isKeyboardOpen && (
-        <div className="fixed bottom-3 left-1/2 z-50 flex w-[94%] max-w-[450px] -translate-x-1/2 items-center justify-around rounded-[32px] border border-[#e2e8f0] bg-white/95 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-xl hide-scrollbar">
+      {((activeTab !== 'chat' && !isKeyboardOpen) || (activeTab === 'chat' && isChatMenuOpen && !isKeyboardOpen)) && (
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-1/2 z-50 flex w-[94%] max-w-[450px] -translate-x-1/2 items-center justify-around rounded-[32px] border border-[#e2e8f0] bg-white/95 px-2 py-2 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-xl hide-scrollbar">
+          {activeTab === 'chat' && (
+            <button
+              type="button"
+              onClick={() => setIsChatMenuOpen(false)}
+              className="absolute -top-3 left-1/2 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm"
+              aria-label="סגור תפריט"
+            >
+              <X size={14} />
+            </button>
+          )}
         <button 
           onClick={() => {
             playSound('click');
