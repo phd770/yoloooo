@@ -353,6 +353,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setMissions(ms);
       setLocalMissions(ms);
       setLocalData('missions', ms);
+    }, (error) => {
+      if (!isQuotaError(error)) console.error('Missions listener error:', error);
+      setMissions(null);
     });
 
     const unsubSession = onSnapshot(doc(db, 'sessions', 'current'), (docSnap) => {
@@ -362,6 +365,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLocalSession(s);
         setLocalData('session', s);
       }
+    }, (error) => {
+      if (!isQuotaError(error)) console.error('Session listener error:', error);
+      setSession(null);
     });
 
     const unsubChatSession = onSnapshot(doc(db, 'chat_sessions', 'current'), (docSnap) => {
@@ -384,6 +390,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         updateLocalChatSession(initialChatSession);
       }
+    }, (error) => {
+      if (!isQuotaError(error)) console.error('Chat session listener error:', error);
+      setChatSession(null);
     });
 
     const qChatMessages = query(collection(db, 'chat_messages'), orderBy('createdAt', 'desc'), limit(300));
@@ -401,6 +410,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         
         
       }
+    }, (error) => {
+      if (!isQuotaError(error)) console.error('Chat messages listener error:', error);
+      setChatMessages(null);
     });
 
     return () => {

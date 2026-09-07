@@ -129,6 +129,26 @@ export function TicTacToe() {
           console.error("Firebase snapshot error:", error);
           setErrorMsg("שגיאת התחברות לשרת. נא לרענן.");
         }
+        try {
+          const saved = localStorage.getItem(`tictactoe_local_${gameId}`);
+          if (saved) {
+            setGameState(JSON.parse(saved) as TicTacToeState);
+          } else {
+            const fallbackState: TicTacToeState = {
+              board: Array(9).fill(""),
+              turn: currentUser.id,
+              status: "playing",
+              winner: null,
+              winningLine: [],
+              updatedAt: Date.now(),
+              scores: { [currentUser.id]: 0, [partner.id]: 0 },
+            };
+            setGameState(fallbackState);
+            localStorage.setItem(`tictactoe_local_${gameId}`, JSON.stringify(fallbackState));
+          }
+        } catch (storageError) {
+          console.error("Failed to load local TicTacToe state:", storageError);
+        }
       },
     );
 

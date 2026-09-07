@@ -626,7 +626,7 @@ export function DiscreteChat({ onBack, onNavigate }: { onBack?: () => void; onNa
           ref={chatContainerRef}
           id="chat-scroll-container" 
           onScroll={handleScroll}
-          style={{ overflowAnchor: 'auto' }}
+          style={{ overflowAnchor: 'none' }}
           className="touch-pan-y flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 flex flex-col items-stretch bg-transparent overscroll-contain relative z-10"
         >
           {!!(chatSession?.deletedAtByUser?.[currentUser?.id || ''] || chatSession?.isDeleted) && (

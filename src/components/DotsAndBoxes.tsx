@@ -75,7 +75,30 @@ export function DotsAndBoxes() {
           initGame();
         }
       }
-    );
+    , (error) => {
+      console.warn("Dots and Boxes snapshot unavailable, using local state:", error);
+      try {
+        const saved = localStorage.getItem(`dotsandboxes_local_${gameId}`);
+        if (saved) {
+          setGameState(JSON.parse(saved) as DotsAndBoxesState);
+        } else {
+          const fallbackState: DotsAndBoxesState = {
+            hLines: {},
+            vLines: {},
+            boxes: {},
+            turn: currentUser.id,
+            status: "playing",
+            winner: null,
+            updatedAt: Date.now(),
+            scores: { [currentUser.id]: 0, [partner.id]: 0 },
+          };
+          setGameState(fallbackState);
+          localStorage.setItem(`dotsandboxes_local_${gameId}`, JSON.stringify(fallbackState));
+        }
+      } catch (storageError) {
+        console.error("Failed to load local Dots and Boxes state:", storageError);
+      }
+    });
 
     return () => unsub();
   }, [gameId, currentUser, partner]);
@@ -198,8 +221,13 @@ export function DotsAndBoxes() {
       updatedAt: Date.now(),
     };
 
-    setGameState(nextState); // Optimistic update
-    await setDoc(doc(db, "games", `dotsandboxes_${gameId}`), nextState);
+    setGameState(nextState);
+    try {
+      await setDoc(doc(db, "games", `dotsandboxes_${gameId}`), nextState);
+    } catch (error) {
+      console.warn("Dots and Boxes move saved locally:", error);
+      localStorage.setItem(`dotsandboxes_local_${gameId}`, JSON.stringify(nextState));
+    }
   };
 
   if (!gameState || !currentUser || !partner) {
