@@ -6,10 +6,10 @@ export function Home({ onNavigate }: { onNavigate?: (tab: 'home' | 'inbox' | 'hi
   const { currentUser } = useApp();
 
   return (
-    <div className="flex flex-col min-h-full bg-[#f8fafc] overflow-y-auto scroll-smooth w-full">
+    <div className="flex min-h-full w-full flex-col overflow-y-auto scroll-smooth bg-[#f8fafc]">
       {/* Top Header */}
-      <div className="bg-white px-4 pt-6 pb-3 sticky top-0 z-20 shadow-sm rounded-b-3xl">
-        <div className="flex items-center justify-between mb-4 mt-2">
+      <div className="sticky top-0 z-20 rounded-b-3xl bg-white px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] shadow-sm">
+        <div className="mb-4 mt-1 flex items-center justify-between">
           <Menu className="text-gray-600" size={26} />
           <div className="flex flex-col items-center">
             <div className="text-2xl tracking-tight leading-none">
@@ -36,7 +36,7 @@ export function Home({ onNavigate }: { onNavigate?: (tab: 'home' | 'inbox' | 'hi
       </div>
 
       {/* Main Content Area with Image Background */}
-      <div className="relative flex-1 bg-[#dcbca1]">
+      <div className="relative min-h-[min(560px,58dvh)] flex-1 bg-[#dcbca1]">
         <div className="absolute inset-0">
           <img 
             src="https://images.unsplash.com/photo-1518049362265-d5b2a6467637?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" 
@@ -46,9 +46,9 @@ export function Home({ onNavigate }: { onNavigate?: (tab: 'home' | 'inbox' | 'hi
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/10" />
         </div>
 
-        <div className="relative z-10 px-4 pt-4 flex flex-col h-[50dvh]">
+        <div className="relative z-10 flex min-h-[min(560px,58dvh)] flex-col px-4 pt-4">
           {/* Tabs */}
-          <div className="flex justify-between items-center gap-2 mb-12">
+          <div className="mb-8 grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-center gap-2 sm:mb-12">
             <button className="flex-grow bg-white/30 backdrop-blur-md border border-white/40 text-white font-medium py-1.5 rounded-lg text-sm text-center shadow-sm">
               הריון שלי
             </button>
@@ -85,21 +85,21 @@ export function Home({ onNavigate }: { onNavigate?: (tab: 'home' | 'inbox' | 'hi
           </div>
 
           {/* Floating Action Circles at bottom overlapping the bottom white section */}
-          <div className="absolute -bottom-10 left-0 right-0 flex justify-center gap-4 px-4 z-20">
-            <div className="bg-white rounded-3xl shadow-xl w-[28%] aspect-square flex flex-col items-center justify-center gap-2 p-2">
-              <div className="w-12 h-12 bg-[#f0f4f8] rounded-full flex items-center justify-center text-[#4a5568]">
+          <div className="absolute -bottom-12 left-0 right-0 z-20 grid grid-cols-3 gap-2 px-3 sm:gap-4 sm:px-4">
+            <div className="flex aspect-square min-w-0 flex-col items-center justify-center gap-2 rounded-3xl bg-white p-2 shadow-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f4f8] text-[#4a5568] sm:h-12 sm:w-12">
                 <Activity size={24} />
               </div>
               <span className="text-[11px] font-bold text-[#4a5568] text-center leading-tight">מידע<br/>מקצועי</span>
             </div>
-            <div className="bg-white rounded-3xl shadow-xl w-[28%] aspect-square flex flex-col items-center justify-center gap-2 p-2">
-              <div className="w-12 h-12 bg-[#f0f4f8] rounded-full flex items-center justify-center text-[#4a5568]">
+            <div className="flex aspect-square min-w-0 flex-col items-center justify-center gap-2 rounded-3xl bg-white p-2 shadow-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f4f8] text-[#4a5568] sm:h-12 sm:w-12">
                 <Gift size={24} />
               </div>
               <span className="text-[11px] font-bold text-[#4a5568] text-center leading-tight">הטבות<br/>&nbsp;</span>
             </div>
-            <div className="bg-white rounded-3xl shadow-xl w-[28%] aspect-square flex flex-col items-center justify-center gap-2 p-2">
-              <div className="w-12 h-12 bg-[#f0f4f8] rounded-full flex items-center justify-center text-[#4a5568]">
+            <div className="flex aspect-square min-w-0 flex-col items-center justify-center gap-2 rounded-3xl bg-white p-2 shadow-xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f4f8] text-[#4a5568] sm:h-12 sm:w-12">
                 <Tag size={24} />
               </div>
               <span className="text-[11px] font-bold text-[#4a5568] text-center leading-tight">קופונים<br/>&nbsp;</span>
@@ -109,7 +109,7 @@ export function Home({ onNavigate }: { onNavigate?: (tab: 'home' | 'inbox' | 'hi
       </div>
       
       {/* Banner below circles */}
-      <div className="bg-white flex-1 px-4 pt-[60px] pb-6 w-full">
+      <div className="w-full flex-1 bg-white px-4 pb-6 pt-[4.5rem]">
         <div className="bg-[#e2e8f0] h-20 rounded-xl w-full flex items-center justify-center text-gray-500 text-sm overflow-hidden relative">
            <img src="https://images.unsplash.com/photo-1522771930-78848d9293e8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="baby clothes" className="w-full h-full object-cover opacity-50" />
            <div className="absolute bg-white/90 px-4 py-1.5 font-bold text-[#1e3a8a] flex items-center gap-1 rounded shadow-sm backdrop-blur-sm shadow-blue-900/10 text-sm">

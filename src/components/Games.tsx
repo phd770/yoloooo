@@ -602,10 +602,10 @@ export function Games() {
 
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto">
-      <div className="sticky top-0 z-20 flex flex-wrap justify-center gap-2 border-b border-slate-100 bg-white/95 p-4 backdrop-blur-xl">
+      <div className="sticky top-0 z-20 flex gap-2 overflow-x-auto border-b border-slate-100 bg-white/95 p-3 backdrop-blur-xl hide-scrollbar sm:flex-wrap sm:justify-center sm:p-4">
         <button
           onClick={() => setActiveGame("dotsandboxes")}
-          className={`px-4 py-2 rounded-2xl flex items-center gap-2 transition-all font-bold cursor-pointer ${
+          className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2 text-sm font-bold transition-all cursor-pointer sm:px-4 ${
             activeGame === "dotsandboxes"
               ? "bg-[#9b59b6] text-white shadow-md shadow-[#9b59b6]/20"
               : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700"
@@ -616,7 +616,7 @@ export function Games() {
         </button>
         <button
           onClick={() => setActiveGame("tictactoe")}
-          className={`px-4 py-2 rounded-2xl flex items-center gap-2 transition-all font-bold cursor-pointer ${
+          className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2 text-sm font-bold transition-all cursor-pointer sm:px-4 ${
             activeGame === "tictactoe"
               ? "bg-[#FF6B6B] text-white shadow-md shadow-[#FF6B6B]/20"
               : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700"
@@ -627,7 +627,7 @@ export function Games() {
         </button>
         <button
           onClick={() => setActiveGame("connectfour")}
-          className={`px-4 py-2 rounded-2xl flex items-center gap-2 transition-all font-bold cursor-pointer ${
+          className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2 text-sm font-bold transition-all cursor-pointer sm:px-4 ${
             activeGame === "connectfour"
               ? "bg-[#2563eb] text-white shadow-md shadow-[#2563eb]/20"
               : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700"
@@ -638,7 +638,7 @@ export function Games() {
         </button>
         <button
           onClick={() => setActiveGame("backgammon")}
-          className={`px-4 py-2 rounded-2xl flex items-center gap-2 transition-all font-bold cursor-pointer ${
+          className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2 text-sm font-bold transition-all cursor-pointer sm:px-4 ${
             activeGame === "backgammon"
               ? "bg-[#ea580c] text-white shadow-md shadow-[#ea580c]/20"
               : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-slate-700"
