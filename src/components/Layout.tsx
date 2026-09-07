@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, Bell, History, Settings, ShoppingBag, Award, MessageCircle, FolderLock, Gamepad2 } from 'lucide-react';
+import { Home, Bell, History, Settings, ShoppingBag, Award, MessageCircle, FolderLock, Gamepad2, ChevronDown } from 'lucide-react';
 import { useApp } from '../lib/store';
 import { motion } from 'motion/react';
 import { playSound } from '../lib/sounds';
@@ -36,6 +36,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   ).length;
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [gamesWithMyTurn, setGamesWithMyTurn] = useState<number>(0);
 
   const gameId = useMemo(() => {
@@ -128,6 +129,10 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
        // Just attempting setAppBadge is standard for PWAs.
     }
   }, [unreadChatCount, pendingCount]);
+
+  React.useEffect(() => {
+    if (activeTab !== 'chat') setIsChatMenuOpen(false);
+  }, [activeTab]);
 
   React.useEffect(() => {
     if (chatMessages.length > 0) {
@@ -228,8 +233,20 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       
 
 
+      {activeTab === 'chat' && !isKeyboardOpen && !isChatMenuOpen && (
+        <button
+          type="button"
+          onClick={() => setIsChatMenuOpen(true)}
+          className="fixed bottom-4 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-lg backdrop-blur-xl transition-transform hover:scale-105 active:scale-95"
+          title="פתח תפריט ניווט"
+          aria-label="פתח תפריט ניווט"
+        >
+          <ChevronDown size={20} />
+        </button>
+      )}
+
       {!isKeyboardOpen && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 w-[94%] max-w-[450px] bg-white/95 backdrop-blur-xl border border-[#e2e8f0] rounded-[32px] px-2 py-2 flex justify-around items-center z-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hide-scrollbar transition-all duration-300 ${activeTab === 'chat' ? 'translate-y-32 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
+        <div className={`fixed bottom-3 left-1/2 -translate-x-1/2 w-[94%] max-w-[450px] bg-white/95 backdrop-blur-xl border border-[#e2e8f0] rounded-[32px] px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex justify-around items-center z-50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hide-scrollbar transition-all duration-300 ${activeTab === 'chat' && !isChatMenuOpen ? 'translate-y-32 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
         <button 
           onClick={() => {
             playSound('click');
@@ -262,6 +279,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
           onClick={() => {
             playSound('click');
             setActiveTab('chat');
+            setIsChatMenuOpen(false);
           }}
           className={`relative flex flex-col items-center gap-1 transition-all duration-300 px-1 py-2 rounded-2xl flex-1 ${(activeTab as string) === 'chat' ? 'text-[#4a5568] bg-[#f1f5f9]' : 'text-[#a0aec0] hover:text-[#4a5568]'}`}
         >

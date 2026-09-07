@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { db } from '../firebase';
+import { authReady, db } from '../firebase';
 import { 
   collection, 
   doc, 
@@ -517,6 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!hasQuotaError) {
         (async () => {
           try {
+            await authReady;
             const userRef = doc(db, 'users', user.id);
             const userSnap = await getDoc(userRef);
             if (!userSnap.exists()) {
@@ -547,6 +548,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentUserId(null);
       try {
         localStorage.removeItem('dateapp_current_user_id');
+        localStorage.removeItem('dateapp_chat_messages');
+        localStorage.removeItem('dateapp_chat_session');
+        localStorage.removeItem('dateapp_local_vault');
+        localStorage.removeItem('dateapp_missions');
+        localStorage.removeItem('dateapp_session');
+        localStorage.removeItem('last_activity');
+        sessionStorage.removeItem('lastToastedMsg');
       } catch {}
     }
   };

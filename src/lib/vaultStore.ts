@@ -1,4 +1,4 @@
-import { db, storage } from '../firebase';
+import { authReady, db, storage } from '../firebase';
 import { collection, doc, setDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
@@ -13,6 +13,12 @@ interface VaultMedia {
 }
 
 const LOCAL_STORAGE_KEY = 'dateapp_local_vault';
+const MAX_MEDIA_SIZE = 50 * 1024 * 1024;
+
+function sanitizeStorageName(name: string): string {
+  const safeName = name.trim().replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+  return safeName || 'media';
+}
 
 function getLocalVault(): VaultMedia[] {
   try {
@@ -45,13 +51,18 @@ export async function addMediaToVault(
   data: Blob,
   thumbnail?: string
 ): Promise<string> {
+  if (data.size > MAX_MEDIA_SIZE) {
+    throw new Error('Media file exceeds the 50 MB limit');
+  }
+
   const id = crypto.randomUUID();
-  const storagePath = `vault/${id}-${name}`;
+  const storagePath = `vault/${id}-${sanitizeStorageName(name)}`;
   const isOffline = false;
   let downloadURL = '';
 
   if (!isOffline) {
     try {
+      await authReady;
       // 1. Upload to Cloud Storage
       const storageRef = ref(storage, storagePath);
       await uploadBytes(storageRef, data);
@@ -121,6 +132,7 @@ export async function addUrlToVault(
 
   if (!isOffline) {
      try {
+       await authReady;
        await setDoc(doc(db, 'vault', id), mediaData);
        return id;
      } catch (e) {
@@ -140,6 +152,7 @@ export async function getVaultMedia(): Promise<VaultMedia[]> {
   let remoteDocs: VaultMedia[] = [];
   
   try {
+    await authReady;
     const q = query(collection(db, 'vault'));
     const snapshot = await getDocs(q);
     remoteDocs = snapshot.docs.map(doc => doc.data() as VaultMedia);
@@ -165,6 +178,7 @@ export async function deleteVaultMedia(id: string) {
   
   if (!isOffline) {
     try {
+      await authReady;
       const snapshot = await getDocs(query(collection(db, 'vault')));
       foundDoc = snapshot.docs.find(d => d.id === id)?.data() as VaultMedia;
       

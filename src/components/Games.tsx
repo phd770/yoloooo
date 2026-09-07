@@ -584,13 +584,25 @@ export function TicTacToe() {
 }
 
 export function Games() {
-  const [activeGame, setActiveGame] = useState<"tictactoe" | "connectfour" | "backgammon" | "dotsandboxes">(
-    "dotsandboxes",
-  );
+  type GameTab = "tictactoe" | "connectfour" | "backgammon" | "dotsandboxes";
+  const [activeGame, setActiveGame] = useState<GameTab>(() => {
+    try {
+      const savedGame = localStorage.getItem('dateapp_active_game');
+      return savedGame && ['tictactoe', 'connectfour', 'backgammon', 'dotsandboxes'].includes(savedGame)
+        ? savedGame as GameTab
+        : 'dotsandboxes';
+    } catch {
+      return 'dotsandboxes';
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dateapp_active_game', activeGame);
+  }, [activeGame]);
 
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto">
-      <div className="flex flex-wrap justify-center gap-2 p-4">
+      <div className="sticky top-0 z-20 flex flex-wrap justify-center gap-2 border-b border-slate-100 bg-white/95 p-4 backdrop-blur-xl">
         <button
           onClick={() => setActiveGame("dotsandboxes")}
           className={`px-4 py-2 rounded-2xl flex items-center gap-2 transition-all font-bold cursor-pointer ${

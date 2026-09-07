@@ -1,6 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
     function isValidString(text, maxLen) {
       return text is string && text.size() <= maxLen;
     }
@@ -95,46 +99,46 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if true;
-      allow create: if isValidUser(request.resource.data);
-      allow update: if isValidUser(request.resource.data);
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidUser(request.resource.data);
+      allow update: if isSignedIn() && isValidUser(request.resource.data);
     }
 
     match /missions/{missionId} {
-      allow read: if true;
-      allow create: if isValidMission(request.resource.data);
-      allow update: if isValidMission(request.resource.data);
-      allow delete: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidMission(request.resource.data);
+      allow update: if isSignedIn() && isValidMission(request.resource.data);
+      allow delete: if isSignedIn();
     }
 
     match /sessions/{sessionId} {
-      allow read: if true;
-      allow create: if isValidSession(request.resource.data);
-      allow update: if isValidSession(request.resource.data);
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidSession(request.resource.data);
+      allow update: if isSignedIn() && isValidSession(request.resource.data);
     }
 
     match /chat_sessions/{sessionId} {
-      allow read: if true;
-      allow create: if isValidChatSession(request.resource.data);
-      allow update: if isValidChatSession(request.resource.data);
-      allow delete: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidChatSession(request.resource.data);
+      allow update: if isSignedIn() && isValidChatSession(request.resource.data);
+      allow delete: if isSignedIn();
     }
 
     match /chat_messages/{messageId} {
-      allow read: if true;
-      allow create: if isValidChatMessage(request.resource.data);
-      allow update: if isValidChatMessage(request.resource.data);
-      allow delete: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidChatMessage(request.resource.data);
+      allow update: if isSignedIn() && isValidChatMessage(request.resource.data);
+      allow delete: if isSignedIn();
     }
 
     match /vault/{mediaId} {
-      allow read: if true;
-      allow create: if isValidVaultMedia(request.resource.data);
-      allow delete: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidVaultMedia(request.resource.data);
+      allow delete: if isSignedIn();
     }
 
     match /games/{gameId} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn();
     }
   }
 }
