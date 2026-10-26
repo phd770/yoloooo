@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "One of the two partners in the app (Michelle or Boaz).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "pin": { "type": "string" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "maxIntensity": { "type": "string", "enum": ["cute", "romantic", "sensual", "surprise"] },
+            "quietHoursStart": { "type": "string" },
+            "quietHoursEnd": { "type": "string" }
+          }
+        }
+      },
+      "required": ["name"]
+    },
+    "Mission": {
+      "title": "Mission",
+      "description": "A mission sent from one partner to another.",
+      "type": "object",
+      "properties": {
+        "sender": { "type": "string" },
+        "receiver": { "type": "string" },
+        "title": { "type": "string" },
+        "shortText": { "type": "string" },
+        "category": { "type": "string", "enum": ["cute", "romantic", "sensual", "surprise"] },
+        "intensity": { "type": "string", "enum": ["cute", "romantic", "sensual", "surprise"] },
+        "estimatedDuration": { "type": "number" },
+        "requiresPresence": { "type": "boolean" },
+        "scoreValue": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "snoozed", "swapped", "rejected"] },
+        "timing": { "type": "string", "enum": ["now", "later_tonight", "within_15_min"] },
+        "createdAt": { "type": "number" },
+        "scheduledFor": { "type": "number" },
+        "aiGenerated": { "type": "boolean" }
+      },
+      "required": ["sender", "receiver", "title", "shortText", "category", "intensity", "status", "timing", "createdAt"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "Current state of the couple's session.",
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["together", "remote"] },
+        "chemistryScore": { "type": "number" },
+        "streak": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["mode", "chemistryScore", "streak", "updatedAt"]
+    },
+    "ConnectFourGame": {
+      "title": "ConnectFourGame",
+      "description": "State of the online real-time Connect Four game.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "board": { "type": "array" },
+        "players": { "type": "object" },
+        "playerNames": { "type": "object" },
+        "currentTurn": { "type": "string", "enum": ["R", "Y"] },
+        "status": { "type": "string", "enum": ["waiting", "active", "finished", "draw"] },
+        "winner": { "type": "string", "enum": ["R", "Y", "null"] },
+        "winningCells": { "type": "array" },
+        "lastMove": { "type": "object" },
+        "punishmentText": { "type": "string" },
+        "scores": { "type": "object" }
+      },
+      "required": ["type", "board", "players", "playerNames", "currentTurn", "status"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Stores current state of active chats and privacy modes.",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array" },
+        "privacyMode": { "type": "string", "enum": ["normal", "discreet", "super_discreet"] },
+        "lastMessageAt": { "type": "number" },
+        "autoExpireTimer": { "type": "number" },
+        "isDeleted": { "type": "boolean" },
+        "deletedBy": { "type": "string" },
+        "deletedAt": { "type": "number" },
+        "deletedAtByUser": { "type": "object" },
+        "typingUsers": { "type": "object" }
+      },
+      "required": ["participants", "privacyMode", "lastMessageAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single chat message.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "text": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "isViewOnce": { "type": "boolean" },
+        "viewDuration": { "type": "number" },
+        "viewedAt": { "type": "number" },
+        "expiresAt": { "type": "number" }
+      },
+      "required": ["sessionId", "senderId", "receiverId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profiles."
+    },
+    "missions/{missionId}": {
+      "schema": "Mission",
+      "description": "Stores all missions."
+    },
+    "sessions/current": {
+      "schema": "Session",
+      "description": "Stores current session info."
+    },
+    "games/{gameId}": {
+      "schema": "ConnectFourGame",
+      "description": "Stores game board arrays and state scores."
+    },
+    "chat_sessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Stores active chat parameters."
+    },
+    "chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Stores chat messages."
+    }
+  }
+}

@@ -1,0 +1,11 @@
+.git
+.agents
+.codex
+node_modules
+dist
+coverage
+tests
+.env*
+*.log
+*-REVIEW.md
+REBUILD-STATUS.md

@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isMember() {
+      return request.auth != null &&
+             (request.auth.uid == 'boaz' || request.auth.uid == 'mishel');
+    }
+    match /{allPaths=**} {
+      allow read: if isMember();
+      allow write: if isMember()
+        && request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|video/.*|audio/.*');
+      allow delete: if isMember();
+    }
+  }
+}

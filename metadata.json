@@ -1,0 +1,10 @@
+{
+  "name": "yolo",
+  "description": "A private, intimate couple's game for two users with real-time missions and AI suggestions.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
