@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Send,
   Paperclip,
@@ -173,6 +173,62 @@ export function DiscreteChat({
   useEffect(() => {
     if (bottomRef.current) scrollDown();
   }, [messages.at(-1)?.id, messages.length]);
+  // iOS Safari has no scroll anchoring: remember the first visible row while
+  // the user reads history and put it back when content above it changes.
+  const anchor = useRef<{ id: string; offset: number } | null>(null);
+  const anchorFrame = useRef(0);
+  const recordAnchor = () => {
+    cancelAnimationFrame(anchorFrame.current);
+    anchorFrame.current = requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      if (!container || bottomRef.current) {
+        anchor.current = null;
+        return;
+      }
+      const top = container.getBoundingClientRect().top;
+      for (const row of container.querySelectorAll<HTMLElement>("[data-mid]")) {
+        const rect = row.getBoundingClientRect();
+        if (rect.bottom > top) {
+          anchor.current = { id: row.dataset.mid!, offset: rect.top - top };
+          return;
+        }
+      }
+    });
+  };
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    const saved = anchor.current;
+    if (!container || !saved || bottomRef.current) return;
+    const rows = Array.from(
+      container.querySelectorAll("[data-mid]"),
+    ) as HTMLElement[];
+    const row = rows.find((item) => item.dataset.mid === saved.id);
+    if (!row) return;
+    const delta =
+      row.getBoundingClientRect().top -
+      container.getBoundingClientRect().top -
+      saved.offset;
+    if (Math.abs(delta) > 1) container.scrollTop += delta;
+  }, [messages]);
+  // The keyboard opening or closing resizes the list: stay on the latest message.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const stick = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (bottomRef.current) scrollDown();
+      });
+    };
+    viewport?.addEventListener("resize", stick);
+    window.addEventListener("resize", stick);
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(anchorFrame.current);
+      viewport?.removeEventListener("resize", stick);
+      window.removeEventListener("resize", stick);
+    };
+  }, []);
   useEffect(() => {
     if (document.visibilityState === "hidden" || !atBottom) return;
     const ids = messages
@@ -542,6 +598,7 @@ export function DiscreteChat({
             100;
           bottomRef.current = at;
           setAtBottom(at);
+          recordAnchor();
         }}
       >
         {!messages.length && (
@@ -557,6 +614,7 @@ export function DiscreteChat({
           return (
             <article
               key={message.id}
+              data-mid={message.id}
               className={`message-row ${own ? "own" : ""}`}
               onTouchStart={(event) => {
                 const touch = event.touches[0];
@@ -740,10 +798,13 @@ export function DiscreteChat({
           <ArrowDown size={16} /> להודעות האחרונות
         </button>
       )}
-      {!!chatSession?.typingUsers?.[partner?.id || ""] &&
-        now - chatSession.typingUsers[partner!.id] < 5000 && (
-          <p className="typing-status">{partner?.name} מקליד/ה…</p>
-        )}
+      {/* Always rendered: a mounting/unmounting row would resize the list. */}
+      <p className="typing-status" aria-live="polite">
+        {!!chatSession?.typingUsers?.[partner?.id || ""] &&
+        now - chatSession.typingUsers[partner!.id] < 5000
+          ? `${partner?.name} מקליד/ה…`
+          : ""}
+      </p>
       <form className="chat-composer" onSubmit={send}>
         {(reply || editing || attachment || uploading || recording) && (
           <div className="composer-context">

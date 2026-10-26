@@ -1011,6 +1011,18 @@ p {
   max-height: 310px;
   border-radius: 10px;
 }
+/* Reserve the box before the file loads so the thread does not reflow. */
+.message-media img {
+  width: min(100%, 260px);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #e5e5ea;
+}
+.message-video {
+  width: min(100%, 280px);
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
 .message-bubble audio {
   max-width: 100%;
   width: 250px;
@@ -1151,8 +1163,12 @@ p {
 }
 .typing-status {
   font-size: 11px;
+  line-height: 14px;
+  height: 20px;
+  box-sizing: border-box;
+  flex-shrink: 0;
   color: #aa8090;
-  padding: 5px 28px;
+  padding: 3px 28px;
 }
 .recording {
   color: #c63c58;
