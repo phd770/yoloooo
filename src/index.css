@@ -117,6 +117,11 @@ p {
   background: #f9edf0;
   font-weight: 700;
 }
+/* The "more" tab only exists for the mobile bottom bar; the desktop
+   sidebar lists every tab directly, so this stays out of its flow. */
+.nav-more-wrap {
+  display: none;
+}
 .nav-icon {
   position: relative;
 }
@@ -790,6 +795,22 @@ p {
     gap: 5px;
     font-size: 9px;
     border-radius: 10px;
+  }
+  /* 5 slots in the bar: home, chat, games, zimmers and "עוד" (more), which
+     holds inbox, vault and settings instead of giving each its own slot. */
+  .nav-item-inbox,
+  .nav-item-vault,
+  .nav-item-settings {
+    display: none;
+  }
+  .nav-more-wrap {
+    display: flex;
+    flex: 1;
+    position: relative;
+  }
+  .nav-item-more {
+    width: 100%;
+    height: 100%;
   }
   .nav-item.selected {
     background: #fff;
@@ -1606,7 +1627,38 @@ html {
   .nav-item { font-size: 11px; color: #54616a; border-radius: 18px; }
   .nav-item.selected { background: #f1f6fa; color: #53616b; }
   .nav-item.selected .nav-icon { background: transparent; box-shadow: none; }
-  .nav-item-vault { display: none; }
+  .nav-more-sheet {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    width: min(230px, calc(100vw - 30px));
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px #4a5b6c30;
+    z-index: 30;
+  }
+  .nav-more-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    color: #54616a;
+    text-align: right;
+  }
+  .nav-more-item:hover {
+    background: #faf5f5;
+  }
+  .nav-more-item.selected {
+    background: #f1f6fa;
+    color: #a34260;
+    font-weight: 700;
+  }
 }
 @media (max-width: 380px) {
   .welcome-sheet { padding-inline: 22px; padding-top: 30px; }
