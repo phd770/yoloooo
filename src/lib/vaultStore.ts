@@ -1,4 +1,4 @@
-import { ensureAuthenticated, db, storage } from "../firebase";
+import { ensureAuthenticated, db, getStorageLazy } from "../firebase";
 import {
   collection,
   doc,
@@ -10,12 +10,6 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { subscribeWithRecovery } from "./subscription";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
 export interface VaultMedia {
   id: string;
   type: "image" | "video";
@@ -48,6 +42,8 @@ export async function addMediaToVault(
   validateMedia(data);
   if (!data.type.startsWith(`${type}/`)) throw new Error("סוג הקובץ אינו תואם");
   await ensureAuthenticated();
+  const [{ ref, uploadBytes, getDownloadURL, deleteObject }, storage] =
+    await Promise.all([import("firebase/storage"), getStorageLazy()]);
   const id = crypto.randomUUID();
   const storagePath = `vault/${id}-${name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "media"}`;
   const target = ref(storage, storagePath);
@@ -144,6 +140,10 @@ export async function deleteVaultMedia(id: string) {
   const item = snapshot.data() as VaultMedia;
   if (item.storagePath) {
     try {
+      const [{ ref, deleteObject }, storage] = await Promise.all([
+        import("firebase/storage"),
+        getStorageLazy(),
+      ]);
       await deleteObject(ref(storage, item.storagePath));
     } catch (error) {
       if ((error as { code?: string }).code !== "storage/object-not-found")

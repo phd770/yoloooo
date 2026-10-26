@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, setLogLevel } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import type { FirebaseStorage } from "firebase/storage";
 import {
   inMemoryPersistence,
   getAuth,
@@ -13,8 +13,18 @@ import firebaseConfig from "../firebase-applet-config.json";
 const app = initializeApp(firebaseConfig);
 setLogLevel("error");
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const storage = getStorage(app);
 export const auth = getAuth(app);
+
+// The storage SDK is only needed for vault media and chat attachments, not
+// at boot: load it on first use instead of pulling it into the initial bundle.
+let storagePromise: Promise<FirebaseStorage> | null = null;
+export function getStorageLazy(): Promise<FirebaseStorage> {
+  if (!storagePromise)
+    storagePromise = import("firebase/storage").then(({ getStorage }) =>
+      getStorage(app),
+    );
+  return storagePromise;
+}
 // Clear any identity saved by older versions, then keep new sessions in memory only.
 const authPersistenceReady = (async () => {
   await setPersistence(auth, inMemoryPersistence);

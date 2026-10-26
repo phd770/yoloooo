@@ -35,6 +35,12 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes("node_modules")) return undefined;
+            // firebase/storage is dynamically imported on first use (vault
+            // media, chat attachments) precisely so it's NOT in the boot
+            // path; keep it out of the eagerly-loaded vendor-firebase chunk
+            // or it would be dragged back into the initial bundle.
+            if (/[\\/](@firebase[\\/]storage|firebase[\\/]storage)[\\/]/.test(id))
+              return "vendor-firebase-storage";
             if (/firebase|@firebase/.test(id)) return "vendor-firebase";
             if (/\/react(-dom)?\//.test(id) || /\/scheduler\//.test(id))
               return "vendor-react";
