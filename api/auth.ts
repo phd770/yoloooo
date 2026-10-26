@@ -4,6 +4,7 @@ import {
   pinMatches,
   pinServices,
   reservePinAttempt,
+  withTimeout,
 } from "../server/pin.js";
 type Request = {
   method?: string;
@@ -18,6 +19,15 @@ type Response = {
 };
 export default async function handler(req: Request, res: Response) {
   res.setHeader("Cache-Control", "no-store");
+  if (req.method === "GET") {
+    // Warm-up ping from the login screen: pays the cold start before the PIN is typed.
+    try {
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) pinServices();
+    } catch {
+      // Ignore: the real login request reports configuration problems.
+    }
+    return res.status(200).json({});
+  }
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
@@ -69,17 +79,20 @@ export default async function handler(req: Request, res: Response) {
     )
       .split(",")[0]
       .trim();
-    if (!(await reservePinAttempt(db, ip))) {
+    const pinRef = db.doc(`private_pin_codes/${profile}`);
+    // Independent reads: run together instead of one after the other.
+    const [allowed, saved] = await withTimeout(
+      Promise.all([reservePinAttempt(db, ip), pinRef.get()]),
+      8000,
+    );
+    if (!allowed) {
       res.setHeader("Retry-After", "900");
       return res
         .status(429)
         .json({ error: "בוצעו יותר מדי ניסיונות. נסו בעוד 15 דקות." });
     }
-    const pinRef = db.doc(`private_pin_codes/${profile}`);
-    const saved = await pinRef.get();
     if (!pinMatches(pin, saved.data()?.hash || envHash))
       return res.status(401).json({ error: "קוד שגוי" });
-    await clearPinAttempts(db, ip);
     if (newPin !== undefined) {
       // Recheck inside the transaction: two concurrent changes cannot overwrite each other.
       await db.runTransaction(async (transaction) => {
@@ -91,11 +104,17 @@ export default async function handler(req: Request, res: Response) {
           updatedAt: Date.now(),
         });
       });
+      await clearPinAttempts(db, ip).catch(() => {});
       return res.status(200).json({ updated: true });
     }
-    return res
-      .status(200)
-      .json({ token: await auth.createCustomToken(profile, { profile }) });
+    const [token] = await withTimeout(
+      Promise.all([
+        auth.createCustomToken(profile, { profile }),
+        clearPinAttempts(db, ip).catch(() => {}),
+      ]),
+      8000,
+    );
+    return res.status(200).json({ token });
   } catch {
     return res
       .status(503)

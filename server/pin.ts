@@ -6,7 +6,7 @@ import {
 } from "node:crypto";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, initializeFirestore } from "firebase-admin/firestore";
 import config from "../firebase-applet-config.json" with { type: "json" };
 export const PIN_WINDOW_MS = 15 * 60 * 1000;
 export const MAX_PIN_ATTEMPTS = 5;
@@ -25,7 +25,14 @@ export function hashPin(pin: string): string {
   const salt = randomBytes(16);
   return `${salt.toString("base64")}:${scryptSync(pin, salt, 64).toString("base64")}`;
 }
+let cachedServices:
+  | { auth: ReturnType<typeof getAuth>; db: ReturnType<typeof getFirestore> }
+  | undefined;
+
 export function pinServices() {
+  // Reused across warm invocations: re-parsing credentials and re-opening a
+  // Firestore channel on every request made each login pay a cold start.
+  if (cachedServices) return cachedServices;
   const credentials = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!credentials) throw new Error("Server not configured");
   const app =
@@ -37,11 +44,25 @@ export function pinServices() {
       },
       "pin-auth",
     );
-  return {
+  // REST avoids the slow, sometimes hanging gRPC channel setup on serverless cold starts.
+  cachedServices = {
     auth: getAuth(app),
-    db: getFirestore(app, config.firestoreDatabaseId),
+    db: initializeFirestore(app, { preferRest: true }, config.firestoreDatabaseId),
   };
+  return cachedServices;
 }
+
+/** Reject if a backend call hangs, so the client gets a fast, retryable error. */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Timed out")), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 export async function reservePinAttempt(
   db: ReturnType<typeof getFirestore>,
   ip: string,

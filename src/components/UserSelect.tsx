@@ -1,6 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
-import { signInWithPin, type AllowedProfileId } from "../firebase";
+import { signInWithPin, warmUpLogin, type AllowedProfileId } from "../firebase";
 
 export function UserSelect() {
   const [profile, setProfile] = useState<AllowedProfileId | null>(null);
@@ -9,6 +9,7 @@ export function UserSelect() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
+  useEffect(() => warmUpLogin(), []);
 
   const choose = (id: AllowedProfileId) => {
     setProfile(id);

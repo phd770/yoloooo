@@ -42,21 +42,28 @@ export async function signInWithPin(
   pin: string,
 ): Promise<void> {
   await authPersistenceReady;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  let response: Response;
-  try {
-    response = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile, pin }),
-      signal: controller.signal,
-    });
-  } catch {
-    throw new Error("החיבור לשרת לא הושלם. הקוד נשמר ואפשר לנסות שוב.");
-  } finally {
-    clearTimeout(timeout);
+  // One automatic retry on timeout, network error or 5xx: the first request often
+  // lands on a cold serverless instance.
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 2 && !response; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const result = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile, pin }),
+        signal: controller.signal,
+      });
+      if (result.status < 500 || attempt === 1) response = result;
+    } catch {
+      if (attempt === 1)
+        throw new Error("החיבור לשרת לא הושלם. הקוד נשמר ואפשר לנסות שוב.");
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+  if (!response) throw new Error("החיבור לשרת לא הושלם. הקוד נשמר ואפשר לנסות שוב.");
   if (response.status === 401) throw new Error("הקוד שגוי. נסו שוב.");
   if (response.status === 429)
     throw new Error("בוצעו יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.");
@@ -71,6 +78,11 @@ export async function signInWithPin(
   const data = (await response.json()) as { token?: string };
   if (!data.token) throw new Error("לא התקבל אישור כניסה");
   await signInWithCustomToken(auth, data.token);
+}
+
+/** Wake the login function (and its Firestore/Auth clients) before the PIN is submitted. */
+export function warmUpLogin(): void {
+  fetch("/api/auth", { method: "GET", cache: "no-store" }).catch(() => {});
 }
 
 export async function signOutFromApp(): Promise<void> {
