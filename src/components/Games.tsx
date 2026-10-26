@@ -15,6 +15,7 @@ import { db } from "../firebase";
 import { useApp } from "../lib/store";
 import { useWaitingGames } from "./Layout";
 import { observeDocument, createDocumentIfMissing } from "../lib/realtime";
+import { withMoveTimeout, sameData } from "../lib/gameSync";
 const ConnectFour = lazy(() =>
   import("./ConnectFour").then((module) => ({ default: module.ConnectFour })),
 );
@@ -105,8 +106,10 @@ export function TicTacToe() {
       (snapshot) => {
         const fromCache = snapshot.metadata.fromCache;
         if (snapshot.exists()) {
-          setState(snapshot.data() as Board);
           setError(false);
+          // Metadata-only snapshots carry the same data: keep the same state.
+          const data = snapshot.data() as Board;
+          setState((previous) => (sameData(previous, data) ? previous : data));
         } else if (!fromCache) {
           void createDocumentIfMissing(ref, initial()).catch(() => setError(true));
         }
@@ -118,7 +121,7 @@ export function TicTacToe() {
     if (!id || !currentUser || !partner || busy) return;
     setBusy(true);
     try {
-      await runTransaction(db, async (transaction) => {
+      await withMoveTimeout(runTransaction(db, async (transaction) => {
         const ref = doc(db, "games", id);
         const snapshot = await transaction.get(ref);
         if (!snapshot.exists()) throw new Error("missing");
@@ -131,7 +134,7 @@ export function TicTacToe() {
             partner.id,
           ),
         );
-      });
+      }));
     } catch {
       toast.error("המהלך לא נשמר. בדקו את התור ונסו שוב.");
     } finally {

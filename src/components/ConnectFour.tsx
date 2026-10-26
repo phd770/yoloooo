@@ -1,4 +1,5 @@
 import { observeDocument as onSnapshot, createDocumentIfMissing } from '../lib/realtime';
+import { withMoveTimeout, sameData } from "../lib/gameSync";
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -46,15 +47,15 @@ interface GameState {
   };
 }
 
-function createEmptyBoard(): BoardState {
+export function createEmptyBoard(): BoardState {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 }
 
-function serializeBoard(board: BoardState): any {
+export function serializeBoard(board: BoardState): any {
   return board.flat();
 }
 
-function deserializeBoard(flatBoard: any): BoardState {
+export function deserializeBoard(flatBoard: any): BoardState {
   if (!Array.isArray(flatBoard)) {
     return createEmptyBoard();
   }
@@ -68,7 +69,7 @@ function deserializeBoard(flatBoard: any): BoardState {
   return board;
 }
 
-function checkWinner(board: BoardState, player: "R" | "Y"): { r: number; c: number }[] | null {
+export function checkWinner(board: BoardState, player: "R" | "Y"): { r: number; c: number }[] | null {
   const directions = [
     [0, 1],   // Horizontal
     [1, 0],   // Vertical
@@ -110,11 +111,11 @@ function checkWinner(board: BoardState, player: "R" | "Y"): { r: number; c: numb
   return null;
 }
 
-function isBoardFull(board: BoardState): boolean {
+export function isBoardFull(board: BoardState): boolean {
   return board.every((row) => row.every((cell) => cell !== null));
 }
 
-function getAvailableRow(board: BoardState, col: number): number | null {
+export function getAvailableRow(board: BoardState, col: number): number | null {
   for (let row = ROWS - 1; row >= 0; row--) {
     if (!board[row][col]) return row;
   }
@@ -287,16 +288,21 @@ export function ConnectFour() {
 
     initGame();
 
+    let lastData: GameState | null = null;
     const unsubscribe = onSnapshot(gameRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as GameState;
         if (data && data.board) {
           data.board = deserializeBoard(data.board);
         }
+        setLoading(false);
+        // A cached snapshot while the device is offline may be stale.
+        setIsOfflinePlay(snapshot.metadata.fromCache && !navigator.onLine);
+        // Metadata-only snapshots carry the same data: skip the re-render.
+        if (sameData(lastData, data)) return;
+        lastData = data;
         setGame(data);
         saveLocalGame(data);
-        setLoading(false);
-        setIsOfflinePlay(false);
       }
     }, (error: any) => {
       const errMsg = String(error.message || error).toLowerCase();
@@ -410,7 +416,7 @@ export function ConnectFour() {
 
     if (gameRef && !isLocalActive) {
       try {
-        await runTransaction(db, async (transaction) => {
+        await withMoveTimeout(runTransaction(db, async (transaction) => {
           const gameDoc = await transaction.get(gameRef);
           if (!gameDoc.exists()) {
             throw new Error("Game does not exist");
@@ -467,7 +473,7 @@ export function ConnectFour() {
             ...newGameState,
             board: serializeBoard(newGameState.board),
           });
-        });
+        }));
       } catch (err: any) {
         console.error("Connect 4 transaction error:", err);
         const errMsg = String(err.message || err).toLowerCase();

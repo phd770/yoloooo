@@ -1,4 +1,5 @@
 import { observeDocument as onSnapshot, createDocumentIfMissing, updateDocumentIfUnchanged } from '../lib/realtime';
+import { withMoveTimeout, sameData } from "../lib/gameSync";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -212,13 +213,18 @@ export function Backgammon() {
 
     initGame();
 
+    let lastData: BackgammonState | null = null;
     const unsubscribe = onSnapshot(gameRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as BackgammonState;
+        setLoading(false);
+        // A cached snapshot while the device is offline may be stale.
+        setIsOfflinePlay(snapshot.metadata.fromCache && !navigator.onLine);
+        // Metadata-only snapshots carry the same data: skip the re-render.
+        if (sameData(lastData, data)) return;
+        lastData = data;
         setDbGameState(data);
         saveLocalGameState(data);
-        setLoading(false);
-        setIsOfflinePlay(false);
       }
     }, (error: any) => {
       const errMsg = String(error.message || error).toLowerCase();
@@ -251,7 +257,7 @@ export function Backgammon() {
 
   const commitGame = async (patch: Record<string, unknown>) => {
     if (!gameRef || !gameState) throw new Error('המשחק אינו זמין');
-    await updateDocumentIfUnchanged(gameRef, gameState, patch, ['points', 'bar', 'off', 'dice', 'movesLeft', 'turn', 'status', 'hasRolled', 'player1', 'player2']);
+    await withMoveTimeout(updateDocumentIfUnchanged(gameRef, gameState, patch, ['points', 'bar', 'off', 'dice', 'movesLeft', 'turn', 'status', 'hasRolled', 'player1', 'player2']));
   };
 
   // Roll dice

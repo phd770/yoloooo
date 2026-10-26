@@ -1,4 +1,5 @@
 import { observeDocument as onSnapshot, createDocumentIfMissing, updateDocumentIfUnchanged } from '../lib/realtime';
+import { withMoveTimeout, sameData } from "../lib/gameSync";
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Gamepad2, RotateCcw, UserCircle2, Info, X } from "lucide-react";
@@ -59,7 +60,8 @@ export function DotsAndBoxes() {
           }
           if (
             data.status === "won" &&
-            gameState?.status !== "won" &&
+            previous &&
+            previous.status !== "won" &&
             data.winner
           ) {
             if (data.winner === currentUser.id) {
@@ -76,9 +78,11 @@ export function DotsAndBoxes() {
             }
           }
 
+          setSyncFailed(false);
+          // Metadata-only snapshots carry the same data: skip the re-render.
+          if (sameData(previous, data)) return;
           setGameState(data);
           previousGameState.current = data;
-          setSyncFailed(false);
         } else if (!fromCache) {
           void initGame(undefined, true).catch(() => toast.error("לא הצלחנו להתחיל את המשחק. נסו שוב."));
         }
@@ -218,7 +222,7 @@ export function DotsAndBoxes() {
     };
 
     try {
-      await updateDocumentIfUnchanged(doc(db, "games", `dotsandboxes_${gameId}`), gameState, nextState, ["hLines", "vLines", "boxes", "turn", "status"]);
+      await withMoveTimeout(updateDocumentIfUnchanged(doc(db, "games", `dotsandboxes_${gameId}`), gameState, nextState, ["hLines", "vLines", "boxes", "turn", "status"]));
     } catch (error) {
       toast.error("המהלך לא נשמר. הלוח נשאר ללא שינוי; נסו שוב.");
     } finally {
