@@ -48,6 +48,72 @@ export function normalizeListingUrl(input: string): string | null {
   }
 }
 
+const TRACKING_PARAMS = new Set([
+  "fbclid", "gclid", "dclid", "msclkid", "igshid", "mc_cid", "mc_eid", "ref", "ref_",
+  // Airbnb / Booking share and search-context params
+  "source_impression_id", "federated_search_id", "search_mode", "search_type",
+  "check_in", "check_out", "checkin", "checkout", "guests", "adults", "children",
+  "infants", "pets", "room1", "group_adults", "group_children", "no_rooms",
+  "aid", "label", "sid", "sb_price_type", "category_tag", "previous_page_section_name",
+  "source", "locale", "currency", "lang", "photo_id", "translate",
+]);
+
+/**
+ * Stable identity of a listing URL for duplicate detection: host lowercased
+ * without "www.", http == https, no trailing slash or hash, and tracking /
+ * search-context params removed. The stored URL is never rewritten.
+ */
+export function listingKey(input: string): string {
+  try {
+    const url = new URL(input);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const path = url.pathname.replace(/\/+$/, "");
+    const params = [...url.searchParams.entries()]
+      .filter(([key]) => {
+        const name = key.toLowerCase();
+        return !name.startsWith("utm_") && !TRACKING_PARAMS.has(name);
+      })
+      .sort(([a, x], [b, y]) => (a === b ? x.localeCompare(y) : a.localeCompare(b)));
+    const query = params.map(([key, value]) => `${key}=${value}`).join("&");
+    return `${host}${url.port ? `:${url.port}` : ""}${path}${query ? `?${query}` : ""}`;
+  } catch {
+    return input.trim();
+  }
+}
+
+/**
+ * Concurrent "chosen" taps can leave several docs chosen. The latest chosenAt
+ * wins (ties broken by id so every client agrees).
+ */
+export function chosenWinnerId(zimmers: readonly Zimmer[]): string | null {
+  let winner: Zimmer | null = null;
+  for (const zimmer of zimmers) {
+    if (!zimmer.chosen) continue;
+    const at = zimmer.chosenAt ?? 0;
+    const best = winner?.chosenAt ?? 0;
+    if (!winner || at > best || (at === best && zimmer.id > winner.id))
+      winner = zimmer;
+  }
+  return winner?.id ?? null;
+}
+
+/** The list with at most one chosen zimmer (the winner). Same array if already consistent. */
+export function withSingleChosen(zimmers: Zimmer[]): Zimmer[] {
+  if (zimmers.filter((zimmer) => zimmer.chosen).length < 2) return zimmers;
+  const winner = chosenWinnerId(zimmers);
+  return zimmers.map((zimmer) =>
+    zimmer.chosen && zimmer.id !== winner ? { ...zimmer, chosen: false } : zimmer,
+  );
+}
+
+/** Ids of chosen zimmers that lost to a newer choice and should be unset. */
+export function staleChosenIds(zimmers: readonly Zimmer[]): string[] {
+  const winner = chosenWinnerId(zimmers);
+  return zimmers
+    .filter((zimmer) => zimmer.chosen && zimmer.id !== winner)
+    .map((zimmer) => zimmer.id);
+}
+
 export function domainOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -122,7 +188,7 @@ export function toggleInList(list: readonly string[] | undefined, value: string)
 }
 
 export function filterZimmers(zimmers: Zimmer[], filter: ZimmerFilter): Zimmer[] {
-  return zimmers.filter((zimmer) => {
+  return withSingleChosen(zimmers).filter((zimmer) => {
     if (filter === "archived") return !!zimmer.archived;
     if (zimmer.archived) return false;
     if (filter === "match") return isMatch(zimmer);
@@ -136,7 +202,7 @@ export function filterZimmers(zimmers: Zimmer[], filter: ZimmerFilter): Zimmer[]
 export function sortZimmers(zimmers: Zimmer[], sort: ZimmerSort): Zimmer[] {
   const priceKey = (zimmer: Zimmer) =>
     totalPrice(zimmer) ?? zimmer.pricePerNight ?? Number.POSITIVE_INFINITY;
-  return [...zimmers].sort((a, b) => {
+  return [...withSingleChosen(zimmers)].sort((a, b) => {
     if (!!a.chosen !== !!b.chosen) return a.chosen ? -1 : 1;
     if (sort === "price") {
       const diff = priceKey(a) - priceKey(b);

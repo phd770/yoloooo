@@ -3,16 +3,19 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDocs,
   onSnapshot,
   query,
+  runTransaction,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { auth, db, ensureAuthenticated } from "../firebase";
 import { subscribeWithRecovery } from "./subscription";
 import type { Zimmer, ZimmerVote } from "./types";
-import { domainOf } from "./zimmers";
+import { chosenWinnerId, domainOf, staleChosenIds, withSingleChosen } from "./zimmers";
 import type { LinkPreview } from "../../server/link-preview";
 
 export type { LinkPreview };
@@ -28,6 +31,7 @@ export function subscribeZimmers(
 ) {
   let cancelled = false;
   let unsubscribe: (() => void) | undefined;
+  const healing = new Set<string>();
   void ensureAuthenticated()
     .then(() => {
       if (cancelled) return;
@@ -38,17 +42,24 @@ export function subscribeZimmers(
             { includeMetadataChanges: true },
             (snapshot) => {
               if (!snapshot.metadata.fromCache) ready();
-              receive(
-                snapshot.docs.map(
-                  (item) =>
-                    ({
-                      amenities: [],
-                      votes: {},
-                      ...item.data(),
-                      id: item.id,
-                    }) as Zimmer,
-                ),
+              const zimmers = snapshot.docs.map(
+                (item) =>
+                  ({
+                    amenities: [],
+                    votes: {},
+                    ...item.data(),
+                    id: item.id,
+                  }) as Zimmer,
               );
+              // Show a single chosen zimmer even while duplicates exist, then
+              // heal the server data once the snapshot is confirmed.
+              receive(withSingleChosen(zimmers));
+              if (!snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites)
+                for (const id of staleChosenIds(zimmers))
+                  if (!healing.has(id)) {
+                    healing.add(id);
+                    void unsetStaleChosen(id).finally(() => healing.delete(id));
+                  }
             },
             failed,
           ),
@@ -63,6 +74,40 @@ export function subscribeZimmers(
     cancelled = true;
     unsubscribe?.();
   };
+}
+
+/**
+ * Unset `chosen` on a zimmer that lost to a newer choice. Idempotent and safe
+ * if both clients heal at once: it only writes while the doc is still chosen
+ * and a different zimmer with a newer chosenAt exists.
+ */
+export async function unsetStaleChosen(id: string) {
+  try {
+    const others = await getDocs(query(collection(db, COLLECTION), where("chosen", "==", true)));
+    const all = others.docs.map((item) => ({ ...item.data(), id: item.id }) as Zimmer);
+    if (!chosenWinnerId(all) || chosenWinnerId(all) === id) return;
+    const winnerRef = doc(db, COLLECTION, chosenWinnerId(all)!);
+    const staleRef = doc(db, COLLECTION, id);
+    await runTransaction(db, async (transaction) => {
+      const [winner, stale] = await Promise.all([
+        transaction.get(winnerRef),
+        transaction.get(staleRef),
+      ]);
+      if (!stale.exists() || !stale.data().chosen) return;
+      if (!winner.exists() || !winner.data().chosen) return;
+      const staleAt = stale.data().chosenAt ?? 0;
+      const winnerAt = winner.data().chosenAt ?? 0;
+      if (staleAt > winnerAt || (staleAt === winnerAt && id > winner.id)) return;
+      transaction.update(staleRef, {
+        chosen: false,
+        chosenAt: deleteField(),
+        updatedAt: Date.now(),
+        updatedBy: auth.currentUser?.uid ?? "system",
+      });
+    });
+  } catch {
+    // Healing is best-effort; the next snapshot retries.
+  }
 }
 
 /** Firestore rejects undefined; drop those keys. */
@@ -172,6 +217,8 @@ export async function addZimmerFromUrl(
 export async function updateZimmer(id: string, patch: ZimmerPatch, userId: string) {
   await updateDoc(doc(db, COLLECTION, id), {
     ...defined(patch),
+    // Unchoosing in any way (e.g. archiving) must also drop chosenAt.
+    ...(patch.chosen === false ? { chosenAt: deleteField() } : {}),
     updatedAt: Date.now(),
     updatedBy: userId,
   });
@@ -203,6 +250,7 @@ export async function chooseZimmer(
       if (zimmer.chosen && zimmer.id !== id)
         batch.update(doc(db, COLLECTION, zimmer.id), {
           chosen: false,
+          chosenAt: deleteField(),
           updatedAt: now,
           updatedBy: userId,
         });

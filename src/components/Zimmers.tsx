@@ -7,6 +7,7 @@ import type { Zimmer } from "../lib/types";
 import {
   filterZimmers,
   isMatch,
+  listingKey,
   normalizeListingUrl,
   sortZimmers,
   type ZimmerFilter,
@@ -95,7 +96,8 @@ export function Zimmers() {
       setInputError("זה לא נראה כמו קישור. הדביקו כתובת שמתחילה ב־https://");
       return;
     }
-    const existing = zimmers?.find((item) => item.url === url);
+    const key = listingKey(url);
+    const existing = zimmers?.find((item) => listingKey(item.url) === key);
     if (existing) {
       setInputError("הצימר הזה כבר ברשימה");
       return;
