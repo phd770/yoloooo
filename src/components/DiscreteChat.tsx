@@ -26,6 +26,12 @@ import { addUrlToVault } from "../lib/vaultStore";
 import { renderTextWithLinks } from "../lib/linkify";
 import type { ChatMessage } from "../lib/types";
 import { sendPartnerPush } from "../lib/push";
+import {
+  failedSendsKey,
+  loadFailedSends,
+  removeFailedSend,
+  saveFailedSend,
+} from "../lib/failedSends";
 
 async function waitForSend<T>(request: Promise<T>, timeoutMs = 20000): Promise<T> {
   let timeout: ReturnType<typeof setTimeout>;
@@ -70,9 +76,20 @@ export function DiscreteChat({
   const [sending, setSending] = useState(false);
   const [pinging, setPinging] = useState(false);
   const sendingRef = useRef(false);
-  const [outbox, setOutbox] = useState<ChatMessage[]>([]);
-  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
-  const retryArgs = useRef<Map<string, Parameters<typeof app.sendMessage>>>(new Map());
+  const failedKey = failedSendsKey(currentUser?.id);
+  // Unconfirmed sends are persisted so they survive leaving the chat tab or a reload.
+  const [restored] = useState(() => loadFailedSends(failedKey));
+  const [outbox, setOutbox] = useState<ChatMessage[]>(() =>
+    restored.map((entry) => entry.message),
+  );
+  const [failedIds, setFailedIds] = useState<Set<string>>(
+    () => new Set(restored.map((entry) => entry.id)),
+  );
+  const retryArgs = useRef<Map<string, Parameters<typeof app.sendMessage>>>(
+    new Map(
+      restored.map((entry) => [entry.id, entry.args as Parameters<typeof app.sendMessage>]),
+    ),
+  );
   const pendingSendKey = `dateapp_chat_pending_${currentUser?.id}`;
   const [attachment, setAttachment] = useState<{
     url: string;
@@ -114,7 +131,9 @@ export function DiscreteChat({
   }, [chatMessages, outbox, hiddenAt, now]);
   useEffect(() => {
     const receivedIds = new Set(chatMessages.map((message) => message.id));
-    receivedIds.forEach((id) => retryArgs.current.delete(id));
+    receivedIds.forEach((id) => {
+      if (retryArgs.current.delete(id)) removeFailedSend(failedKey, String(id));
+    });
     setFailedIds((current) => {
       if (![...current].some((id) => receivedIds.has(id))) return current;
       return new Set([...current].filter((id) => !receivedIds.has(id)));
@@ -207,6 +226,8 @@ export function DiscreteChat({
     const draftReply = reply;
     const draftOnce = once;
     let optimisticId: string | null = null;
+    let optimisticMessage: ChatMessage | null = null;
+    let sendArgs: Parameters<typeof app.sendMessage> | null = null;
     try {
       if (editing) await app.editMessage(editing.id, text);
       else {
@@ -218,7 +239,7 @@ export function DiscreteChat({
           try { sessionStorage.setItem(pendingSendKey, JSON.stringify(pending)); } catch {}
         }
         optimisticId = pending.id;
-        setOutbox((current) => [...current.filter((message) => message.id !== pending.id), {
+        optimisticMessage = {
           id: pending.id,
           sessionId: "current",
           senderId: currentUser!.id,
@@ -232,12 +253,16 @@ export function DiscreteChat({
           replyToId: reply?.id,
           replyToText: reply?.text || (reply ? "קובץ מצורף" : undefined),
           pending: true,
-        }]);
+        };
+        setOutbox((current) => [
+          ...current.filter((message) => message.id !== pending.id),
+          optimisticMessage!,
+        ]);
         setText("");
         setAttachment(null);
         setReply(null);
         setOnce(false);
-        const sendArgs: Parameters<typeof app.sendMessage> = [
+        sendArgs = [
           draftText,
           draftAttachment?.type === "image" ? draftAttachment.url : undefined,
           draftAttachment?.type === "video" ? draftAttachment.url : undefined,
@@ -253,6 +278,7 @@ export function DiscreteChat({
         retryArgs.current.set(pending.id, sendArgs);
         await waitForSend(app.sendMessage(...sendArgs));
         retryArgs.current.delete(pending.id);
+        removeFailedSend(failedKey, pending.id);
         setOutbox((current) => current.map((message) => message.id === pending.id
           ? { ...message, pending: false }
           : message));
@@ -269,8 +295,27 @@ export function DiscreteChat({
         // Keep the message visible: Firestore may still commit it once the
         // connection returns. Retrying reuses the same id, so no duplicate.
         const failedId = optimisticId;
-        setFailedIds((current) => new Set(current).add(failedId));
-        toast.error("ההודעה לא נשלחה עדיין. לחצו על ההודעה לניסיון חוזר.");
+        const persisted =
+          optimisticMessage &&
+          sendArgs &&
+          saveFailedSend(failedKey, {
+            id: failedId,
+            message: { ...optimisticMessage, pending: true },
+            args: sendArgs,
+          });
+        if (persisted) {
+          setFailedIds((current) => new Set(current).add(failedId));
+          toast.error("ההודעה לא נשלחה עדיין. לחצו על ההודעה לניסיון חוזר.");
+        } else {
+          // Cannot persist the retry: restore the draft so nothing is lost.
+          retryArgs.current.delete(failedId);
+          setOutbox((current) => current.filter((message) => message.id !== failedId));
+          setText((current) => current || draftText);
+          setAttachment((current) => current || draftAttachment);
+          setReply((current) => current || draftReply);
+          setOnce(draftOnce);
+          toast.error("לא התקבל אישור שליחה. הטיוטה נשמרה; אפשר לנסות שוב בלי ליצור הודעה כפולה.");
+        }
       } else {
         toast.error("הפעולה לא הושלמה. נסו שוב.");
       }
@@ -290,6 +335,7 @@ export function DiscreteChat({
     try {
       await waitForSend(app.sendMessage(...args));
       retryArgs.current.delete(id);
+      removeFailedSend(failedKey, id);
       try { sessionStorage.removeItem(pendingSendKey); } catch {}
     } catch {
       setFailedIds((current) => new Set(current).add(id));
