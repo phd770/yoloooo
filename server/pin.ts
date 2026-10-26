@@ -4,7 +4,7 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, initializeFirestore } from "firebase-admin/firestore";
 import config from "../firebase-applet-config.json" with { type: "json" };
@@ -26,7 +26,11 @@ export function hashPin(pin: string): string {
   return `${salt.toString("base64")}:${scryptSync(pin, salt, 64).toString("base64")}`;
 }
 let cachedServices:
-  | { auth: ReturnType<typeof getAuth>; db: ReturnType<typeof getFirestore> }
+  | {
+      app: App;
+      auth: ReturnType<typeof getAuth>;
+      db: ReturnType<typeof getFirestore>;
+    }
   | undefined;
 
 export function pinServices() {
@@ -41,11 +45,13 @@ export function pinServices() {
       {
         credential: cert(JSON.parse(credentials)),
         projectId: config.projectId,
+        storageBucket: config.storageBucket,
       },
       "pin-auth",
     );
   // REST avoids the slow, sometimes hanging gRPC channel setup on serverless cold starts.
   cachedServices = {
+    app,
     auth: getAuth(app),
     db: initializeFirestore(app, { preferRest: true }, config.firestoreDatabaseId),
   };

@@ -1,7 +1,5 @@
-import { cert, getApps, initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
-import config from "../firebase-applet-config.json" with { type: "json" };
+import { pinServices, withTimeout } from "../server/pin.js";
 
 type Response = {
   status(code: number): Response;
@@ -28,24 +26,14 @@ async function check(): Promise<Health> {
   try {
     const credentials = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!credentials) return checks;
-    const app =
-      getApps().find((app) => app.name === "health") ||
-      initializeApp(
-        {
-          credential: cert(JSON.parse(credentials)),
-          projectId: config.projectId,
-          storageBucket: config.storageBucket,
-        },
-        "health",
-      );
+    // Shares the cached login app, so health checks never pay a separate cold init.
+    const { app, db } = pinServices();
     checks.login =
       validHash(process.env.PIN_BOAZ_HASH) &&
       validHash(process.env.PIN_MISHEL_HASH);
     const results = await Promise.allSettled([
-      getFirestore(app, config.firestoreDatabaseId)
-        .doc("sessions/current")
-        .get(),
-      getStorage(app).bucket().getMetadata(),
+      withTimeout(db.doc("sessions/current").get(), 8000),
+      withTimeout(getStorage(app).bucket().getMetadata(), 8000),
     ]);
     checks.database = results[0].status === "fulfilled";
     checks.storage = results[1].status === "fulfilled";

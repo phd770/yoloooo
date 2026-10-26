@@ -4,6 +4,7 @@ import {
   pinServices,
   reservePinAttempt,
   clearPinAttempts,
+  withTimeout,
 } from "../server/pin.js";
 import { VAULT_CODE_HASHES } from "../server/vault-codes.js";
 type Request = {
@@ -81,7 +82,12 @@ export default async function handler(req: Request, res: Response) {
     const { auth, db } = pinServices();
     let uid: string;
     try {
-      uid = (await auth.verifyIdToken(authorization.slice(7), true)).uid;
+      uid = (
+        await withTimeout(
+          auth.verifyIdToken(authorization.slice(7), true),
+          8000,
+        )
+      ).uid;
     } catch {
       return res.status(401).json({ error: "יש להתחבר מחדש" });
     }
@@ -95,7 +101,7 @@ export default async function handler(req: Request, res: Response) {
       .split(",")[0]
       .trim();
     const key = `vault:${uid}:${body.step}:${ip}`;
-    if (!(await reservePinAttempt(db, key))) {
+    if (!(await withTimeout(reservePinAttempt(db, key), 8000))) {
       res.setHeader("Retry-After", "900");
       return res
         .status(429)
@@ -103,7 +109,7 @@ export default async function handler(req: Request, res: Response) {
     }
     if (!pinMatches(body.pin, VAULT_CODE_HASHES[body.step - 1]))
       return res.status(403).json({ error: "הקוד שגוי. נסו שוב." });
-    await clearPinAttempts(db, key);
+    void clearPinAttempts(db, key).catch(() => {});
     return res
       .status(200)
       .json(
