@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import * as webpush from "web-push";
-import { pinServices } from "../server/pin.js";
+import { pinServices, withTimeout } from "../server/pin.js";
 
 type Response = {
   status(code: number): Response;
@@ -20,6 +20,12 @@ type StoredSubscription = {
 };
 const ids = ["boaz", "mishel"] as const;
 const minInterval = 30_000;
+const backendTimeout = 8000;
+
+/** 404/410 from the push service mean the subscription is gone for good. */
+export function isDeadSubscription(error: any): boolean {
+  return error?.statusCode === 404 || error?.statusCode === 410;
+}
 
 function validSubscription(value: any): value is StoredSubscription {
   if (!value || typeof value.endpoint !== "string" || value.endpoint.length > 2048 ||
@@ -50,7 +56,8 @@ export default async function handler(req: Request, res: Response) {
     return res.status(400).json({ error: "בקשה לא תקינה" });
   try {
     const { auth, db } = pinServices();
-    const identity = await auth.verifyIdToken(authorization.slice(7), true);
+    const identity = await withTimeout(
+      auth.verifyIdToken(authorization.slice(7), true), backendTimeout);
     if (!ids.includes(identity.uid as (typeof ids)[number]))
       return res.status(403).json({ error: "אין הרשאה" });
     const uid = identity.uid as "boaz" | "mishel";
@@ -59,28 +66,28 @@ export default async function handler(req: Request, res: Response) {
       if (!validSubscription(subscription))
         return res.status(400).json({ error: "מינוי התראות לא תקין" });
       const key = createHash("sha256").update(subscription.endpoint).digest("hex");
-      await db.doc(`push_subscriptions/${key}`).set({
+      await withTimeout(db.doc(`push_subscriptions/${key}`).set({
         owner: uid,
         endpoint: subscription.endpoint,
         keys: { auth: subscription.keys.auth, p256dh: subscription.keys.p256dh },
         updatedAt: Date.now(),
-      } satisfies StoredSubscription);
+      } satisfies StoredSubscription), backendTimeout);
       return res.status(200).json({ subscribed: true });
     }
 
     const recipient = uid === "boaz" ? "mishel" : "boaz";
-    const subscriptions = await db.collection("push_subscriptions")
-      .where("owner", "==", recipient).limit(20).get();
+    const subscriptions = await withTimeout(db.collection("push_subscriptions")
+      .where("owner", "==", recipient).limit(20).get(), backendTimeout);
     if (subscriptions.empty)
       return res.status(409).json({ error: "הצד השני צריך להפעיל התראות בטלפון שלו" });
     const now = Date.now();
     const rateRef = db.doc(`push_rate/${uid}`);
-    const allowed = await db.runTransaction(async (transaction) => {
+    const allowed = await withTimeout(db.runTransaction(async (transaction) => {
       const previous = await transaction.get(rateRef);
       if (now - Number(previous.data()?.lastSentAt || 0) < minInterval) return false;
       transaction.set(rateRef, { lastSentAt: now });
       return true;
-    });
+    }), backendTimeout);
     if (!allowed)
       return res.status(429).json({ error: "אפשר לשלוח התראה נוספת בעוד חצי דקה" });
 
@@ -98,10 +105,13 @@ export default async function handler(req: Request, res: Response) {
         await webpush.sendNotification({
           endpoint: subscription.endpoint,
           keys: subscription.keys,
-        }, payload, { TTL: 120, urgency: "high" });
+        }, payload, { TTL: 120, urgency: "high", timeout: 10_000 });
       } catch (error: any) {
-        if (error?.statusCode === 404 || error?.statusCode === 410)
-          await item.ref.delete();
+        if (isDeadSubscription(error)) {
+          await withTimeout(item.ref.delete(), backendTimeout).catch(() => {});
+        } else {
+          console.error("[push] send failed", error?.statusCode ?? "unknown");
+        }
         throw error;
       }
     }));
