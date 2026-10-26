@@ -107,11 +107,10 @@ export default async function handler(req: Request, res: Response) {
       await clearPinAttempts(db, ip).catch(() => {});
       return res.status(200).json({ updated: true });
     }
-    const [token] = await withTimeout(
-      Promise.all([
-        auth.createCustomToken(profile, { profile }),
-        clearPinAttempts(db, ip).catch(() => {}),
-      ]),
+    // Cleanup must never delay or fail a correct login.
+    void clearPinAttempts(db, ip).catch(() => {});
+    const token = await withTimeout(
+      auth.createCustomToken(profile, { profile }),
       8000,
     );
     return res.status(200).json({ token });
