@@ -71,6 +71,8 @@ export function DiscreteChat({
   const [pinging, setPinging] = useState(false);
   const sendingRef = useRef(false);
   const [outbox, setOutbox] = useState<ChatMessage[]>([]);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+  const retryArgs = useRef<Map<string, Parameters<typeof app.sendMessage>>>(new Map());
   const pendingSendKey = `dateapp_chat_pending_${currentUser?.id}`;
   const [attachment, setAttachment] = useState<{
     url: string;
@@ -112,6 +114,11 @@ export function DiscreteChat({
   }, [chatMessages, outbox, hiddenAt, now]);
   useEffect(() => {
     const receivedIds = new Set(chatMessages.map((message) => message.id));
+    receivedIds.forEach((id) => retryArgs.current.delete(id));
+    setFailedIds((current) => {
+      if (![...current].some((id) => receivedIds.has(id))) return current;
+      return new Set([...current].filter((id) => !receivedIds.has(id)));
+    });
     setOutbox((current) => current.some((message) => receivedIds.has(message.id))
       ? current.filter((message) => !receivedIds.has(message.id))
       : current);
@@ -230,7 +237,7 @@ export function DiscreteChat({
         setAttachment(null);
         setReply(null);
         setOnce(false);
-        await waitForSend(app.sendMessage(
+        const sendArgs: Parameters<typeof app.sendMessage> = [
           draftText,
           draftAttachment?.type === "image" ? draftAttachment.url : undefined,
           draftAttachment?.type === "video" ? draftAttachment.url : undefined,
@@ -242,7 +249,10 @@ export function DiscreteChat({
           draftAttachment?.type === "audio" ? draftAttachment.url : undefined,
           undefined,
           pending.id,
-        ));
+        ];
+        retryArgs.current.set(pending.id, sendArgs);
+        await waitForSend(app.sendMessage(...sendArgs));
+        retryArgs.current.delete(pending.id);
         setOutbox((current) => current.map((message) => message.id === pending.id
           ? { ...message, pending: false }
           : message));
@@ -255,15 +265,35 @@ export function DiscreteChat({
       scrollDown();
       void Promise.resolve(app.setTypingStatus(false)).catch(() => {});
     } catch {
-      if (optimisticId) setOutbox((current) => current.filter((message) => message.id !== optimisticId));
-      setText((current) => current || draftText);
-      setAttachment((current) => current || draftAttachment);
-      setReply((current) => current || draftReply);
-      setOnce(draftOnce);
-      toast.error("לא התקבל אישור שליחה. הטיוטה נשמרה; אפשר לנסות שוב בלי ליצור הודעה כפולה.");
+      if (optimisticId) {
+        // Keep the message visible: Firestore may still commit it once the
+        // connection returns. Retrying reuses the same id, so no duplicate.
+        const failedId = optimisticId;
+        setFailedIds((current) => new Set(current).add(failedId));
+        toast.error("ההודעה לא נשלחה עדיין. לחצו על ההודעה לניסיון חוזר.");
+      } else {
+        toast.error("הפעולה לא הושלמה. נסו שוב.");
+      }
     } finally {
       sendingRef.current = false;
       setSending(false);
+    }
+  };
+  const retrySend = async (id: string) => {
+    const args = retryArgs.current.get(id);
+    if (!args) return;
+    setFailedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    try {
+      await waitForSend(app.sendMessage(...args));
+      retryArgs.current.delete(id);
+      try { sessionStorage.removeItem(pendingSendKey); } catch {}
+    } catch {
+      setFailedIds((current) => new Set(current).add(id));
+      toast.error("ההודעה עדיין לא נשלחה. בדקו את החיבור ונסו שוב.");
     }
   };
   const attach = async (file: Blob, name: string) => {
@@ -579,7 +609,15 @@ export function DiscreteChat({
                   </time>
                   {message.editedAt && <span>נערכה</span>}
                   {own &&
-                    (message.pending ? (
+                    (failedIds.has(message.id) ? (
+                      <button
+                        type="button"
+                        aria-label="שליחה נכשלה, נסו שוב"
+                        onClick={() => void retrySend(message.id)}
+                      >
+                        ⚠ לא נשלחה · נסו שוב
+                      </button>
+                    ) : message.pending ? (
                       <Clock size={12} aria-label="ממתינה לשליחה" />
                     ) : message.viewedAt ? (
                       <CheckCheck size={14} aria-label="נקראה" />
