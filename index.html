@@ -15,6 +15,14 @@
     <meta name="apple-mobile-web-app-title" content="my baby land" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/app-icon.svg" type="image/svg+xml" />
+    <!-- Firebase auth/Firestore calls start as soon as the app boots; warm up
+         the connections while the JS bundle is still downloading. -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
+    <link rel="dns-prefetch" href="https://securetoken.googleapis.com" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#ad4e69" />
     <meta

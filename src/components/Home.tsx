@@ -13,11 +13,11 @@ export function Home({ onNavigate }: { onNavigate?: (tab: AppTab) => void }) {
   return (
     <div className="reference-home page" dir="rtl">
       <header className="reference-home-header">
-        <img src="/home-reference.jpeg" alt="" aria-hidden="true" />
+        <img src="/home-reference.jpeg" alt="" aria-hidden="true" fetchPriority="high" />
         <button type="button" className="reference-bell-hit" aria-label="פתיחת ההודעות" onClick={() => onNavigate?.("chat")} />
       </header>
       <section className="reference-home-hero" aria-label="עולם שלם של הורות">
-        <img src="/home-reference.jpeg" alt="" aria-hidden="true" />
+        <img src="/home-reference.jpeg" alt="" aria-hidden="true" loading="lazy" />
         <button type="button" className="reference-hero-hit" aria-label="פתיחת הפרופיל" onClick={() => onNavigate?.("settings")} />
       </section>
       <div className="reference-shortcuts-wrap">
@@ -32,7 +32,7 @@ export function Home({ onNavigate }: { onNavigate?: (tab: AppTab) => void }) {
       </div>
       <section className="reference-feature" aria-label="תוכן חדש">
         <div className="reference-feature-picture">
-          <img src="/home-reference.jpeg" alt="מכונת כתיבה ישנה" />
+          <img src="/home-reference.jpeg" alt="מכונת כתיבה ישנה" loading="lazy" />
         </div>
         <div className="reference-dots" aria-hidden="true"><i /><i /><i /></div>
       </section>

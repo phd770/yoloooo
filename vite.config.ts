@@ -25,5 +25,24 @@ export default defineConfig(({ mode }) => {
     server: {
       hmr: process.env.DISABLE_HMR !== "true",
     },
+    build: {
+      // The initial bundle mixes React, Firebase and app code into one
+      // monolithic chunk, so it has to finish downloading before anything
+      // can render. Splitting vendor code into its own cacheable chunks lets
+      // the browser fetch them in parallel and reuse them across deploys
+      // (app code changes far more often than these dependencies do).
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+            if (/firebase|@firebase/.test(id)) return "vendor-firebase";
+            if (/\/react(-dom)?\//.test(id) || /\/scheduler\//.test(id))
+              return "vendor-react";
+            if (/lucide-react/.test(id)) return "vendor-icons";
+            return "vendor";
+          },
+        },
+      },
+    },
   };
 });
