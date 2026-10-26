@@ -87,7 +87,27 @@ export async function signInWithPin(
   }
   const data = (await response.json()) as { token?: string };
   if (!data.token) throw new Error("לא התקבל אישור כניסה");
-  await signInWithCustomToken(auth, data.token);
+  // The PIN is already verified here; this step talks to Google directly and is
+  // what browser blockers or flaky networks break, so it gets its own timeout and message.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      signInWithCustomToken(auth, data.token),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timeout")), 15000);
+      }),
+    ]);
+  } catch (cause) {
+    const code = (cause as { code?: string })?.code ?? (cause as Error)?.message ?? "unknown";
+    console.error("signInWithCustomToken failed", cause);
+    throw new Error(
+      code === "auth/network-request-failed" || code === "timeout"
+        ? `הקוד אושר, אבל הדפדפן לא הצליח להתחבר לשרת ההתחברות של Google. נסו בלי חוסם פרסומות או בחלון פרטי. (${code})`
+        : `הקוד אושר, אבל הכניסה נכשלה בשלב האחרון. (${code})`,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Wake the login function (and its Firestore/Auth clients) before the PIN is submitted. */
