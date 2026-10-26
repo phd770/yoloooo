@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { auth, ALLOWED_PROFILE_IDS, signOutFromApp, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -123,6 +124,12 @@ function cached<T>(key: string, fallback: T): T {
     return fallback;
   }
 }
+const cacheTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+/** Write to localStorage at most once per 500ms per key, with the latest value. */
+function cacheLater(key: string, value: unknown) {
+  clearTimeout(cacheTimers[key]);
+  cacheTimers[key] = setTimeout(() => cache(key, value), 500);
+}
 function cache(key: string, value: unknown) {
   try {
     localStorage.setItem(`dateapp_${key}`, JSON.stringify(value));
@@ -170,6 +177,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [attempt, setAttempt] = useState(0);
+  const lastChatMessages = useRef<any[]>([]);
   const currentUser = currentUserId ? users[currentUserId] : null;
   const partner = currentUserId
     ? users[currentUserId === "boaz" ? "mishel" : "boaz"]
@@ -356,8 +364,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         (snapshot) => {
           if (snapshot.metadata?.fromCache && snapshot.empty) return;
           const value = readList(snapshot, true);
+          const previous = lastChatMessages.current;
+          // Metadata-only snapshots (same data) must not re-render or rewrite the cache.
+          if (
+            previous.length === value.length &&
+            value.every(
+              (item, index) =>
+                previous[index].id === item.id &&
+                previous[index].pending === item.pending &&
+                JSON.stringify(previous[index]) === JSON.stringify(item),
+            )
+          )
+            return;
+          lastChatMessages.current = value;
           setChatMessages(value);
-          cache("chat_messages", value);
+          cacheLater("chat_messages", value);
         },
       ),
     );
@@ -397,6 +418,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
       return;
     }
+    Object.values(cacheTimers).forEach(clearTimeout);
+    lastChatMessages.current = [];
     const signingOut = signOutFromApp();
     setCurrentUserId(null);
     setMissions([]);

@@ -1,5 +1,15 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, setLogLevel } from "firebase/firestore";
+import {
+  clearIndexedDbPersistence,
+  getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  setLogLevel,
+  terminate,
+  waitForPendingWrites,
+} from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import {
   inMemoryPersistence,
@@ -12,7 +22,31 @@ import firebaseConfig from "../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 setLogLevel("error");
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+function createFirestore() {
+  try {
+    return initializeFirestore(
+      app,
+      {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      },
+      firebaseConfig.firestoreDatabaseId,
+    );
+  } catch {
+    // IndexedDB unavailable (private mode, iOS quirks): use the in-memory cache.
+    try {
+      return initializeFirestore(
+        app,
+        { localCache: memoryLocalCache() },
+        firebaseConfig.firestoreDatabaseId,
+      );
+    } catch {
+      return getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    }
+  }
+}
+export const db = createFirestore();
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 // Clear any identity saved by older versions, then keep new sessions in memory only.
@@ -87,6 +121,19 @@ export function warmUpLogin(): void {
 
 export async function signOutFromApp(): Promise<void> {
   await signOut(auth);
+  // The cache holds private chat data: wipe it with the rest of the local
+  // state. A terminated Firestore instance is unusable, so reload afterwards.
+  try {
+    await Promise.race([
+      waitForPendingWrites(db),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]).catch(() => {});
+    await terminate(db);
+    await clearIndexedDbPersistence(db);
+  } catch {
+    // Memory cache or IndexedDB unavailable: nothing persisted to wipe.
+  }
+  window.location.reload();
 }
 
 export async function changePin(pin: string, newPin: string): Promise<void> {
