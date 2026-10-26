@@ -120,3 +120,36 @@ export interface ChatMessage {
   isPing?: boolean;
   editedAt?: number;
 }
+
+export type ZimmerVote = 'like' | 'dislike' | 'maybe';
+
+/** A vacation cabin option in the `zimmers` collection. */
+export interface Zimmer {
+  id: string;
+  url: string;
+  title: string;
+  description?: string;
+  siteName?: string;
+  imageUrl?: string;
+  location?: string;
+  pricePerNight?: number | null;
+  nights?: number | null;
+  checkIn?: string; // YYYY-MM-DD
+  checkOut?: string; // YYYY-MM-DD
+  priceText?: string; // price hint found on the listing page
+  notes?: string;
+  amenities: string[];
+  customTags?: string[];
+  checkInTime?: string;
+  checkOutTime?: string;
+  cancellationPolicy?: string;
+  votes: Partial<Record<string, ZimmerVote>>;
+  createdBy: string;
+  createdAt: number;
+  updatedAt?: number;
+  updatedBy?: string;
+  archived?: boolean;
+  chosen?: boolean;
+  chosenAt?: number;
+  previewPending?: boolean;
+}

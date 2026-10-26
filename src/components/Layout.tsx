@@ -9,6 +9,7 @@ import {
   FolderLock,
   Gamepad2,
   Heart,
+  BedDouble,
 } from "lucide-react";
 import { useApp } from "../lib/store";
 import { db } from "../firebase";
@@ -16,7 +17,7 @@ import { observeDocument } from "../lib/realtime";
 import { getGameTurn, isUsersTurn } from "../lib/gameTurnNotifications";
 import { sendNotification } from "../lib/notifications";
 import { syncExistingPushSubscription } from "../lib/push";
-export type AppTab = "home" | "inbox" | "settings" | "chat" | "vault" | "games";
+export type AppTab = "home" | "inbox" | "settings" | "chat" | "vault" | "games" | "zimmers";
 const WaitingGamesContext = createContext<readonly string[]>([]);
 export const useWaitingGames = () => useContext(WaitingGamesContext);
 const tabs = [
@@ -25,6 +26,7 @@ const tabs = [
   { id: "inbox", label: "משימות", icon: Bell },
   { id: "vault", label: "כספת", icon: FolderLock },
   { id: "games", label: "משחקים", icon: Gamepad2 },
+  { id: "zimmers", label: "צימרים", icon: BedDouble },
   { id: "settings", label: "פרופיל", icon: Settings },
 ] as const;
 export function Layout({

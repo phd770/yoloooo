@@ -99,6 +99,63 @@ service cloud.firestore {
              (!('thumbnail' in data) || data.thumbnail == null || data.thumbnail is string);
     }
 
+    function partnerOf(uid) {
+      return uid == 'boaz' ? 'mishel' : 'boaz';
+    }
+
+    function isOptionalString(data, key, maxLen) {
+      return !(key in data) || isValidString(data[key], maxLen);
+    }
+
+    function isOptionalNumber(data, key, maxValue) {
+      return !(key in data) || data[key] == null ||
+             (data[key] is number && data[key] >= 0 && data[key] <= maxValue);
+    }
+
+    function isOptionalBool(data, key) {
+      return !(key in data) || data[key] is bool;
+    }
+
+    function isValidZimmerVote(votes, uid) {
+      return !(uid in votes) || votes[uid] in ['like', 'dislike', 'maybe'];
+    }
+
+    function isValidZimmer(data) {
+      return data.keys().hasAll(['url', 'title', 'amenities', 'votes', 'createdBy', 'createdAt']) &&
+             data.keys().hasOnly(['url', 'title', 'description', 'siteName', 'imageUrl', 'location',
+                                  'pricePerNight', 'nights', 'checkIn', 'checkOut', 'priceText', 'notes',
+                                  'amenities', 'customTags', 'checkInTime', 'checkOutTime',
+                                  'cancellationPolicy', 'votes', 'createdBy', 'createdAt', 'updatedAt',
+                                  'updatedBy', 'archived', 'chosen', 'chosenAt', 'previewPending']) &&
+             isValidString(data.url, 2048) && data.url.matches('^https?://.+') &&
+             isValidString(data.title, 200) && data.title.size() > 0 &&
+             data.amenities is list && data.amenities.size() <= 30 &&
+             (!('customTags' in data) || (data.customTags is list && data.customTags.size() <= 30)) &&
+             data.votes is map && data.votes.keys().hasOnly(['boaz', 'mishel']) &&
+             isValidZimmerVote(data.votes, 'boaz') && isValidZimmerVote(data.votes, 'mishel') &&
+             data.createdBy in ['boaz', 'mishel'] &&
+             data.createdAt is number &&
+             isOptionalString(data, 'description', 1000) &&
+             isOptionalString(data, 'siteName', 100) &&
+             isOptionalString(data, 'imageUrl', 2048) &&
+             isOptionalString(data, 'location', 200) &&
+             isOptionalString(data, 'checkIn', 10) &&
+             isOptionalString(data, 'checkOut', 10) &&
+             isOptionalString(data, 'priceText', 100) &&
+             isOptionalString(data, 'notes', 2000) &&
+             isOptionalString(data, 'checkInTime', 8) &&
+             isOptionalString(data, 'checkOutTime', 8) &&
+             isOptionalString(data, 'cancellationPolicy', 300) &&
+             isOptionalString(data, 'updatedBy', 50) &&
+             isOptionalNumber(data, 'pricePerNight', 1000000) &&
+             isOptionalNumber(data, 'nights', 365) &&
+             (!('updatedAt' in data) || data.updatedAt is number) &&
+             (!('chosenAt' in data) || data.chosenAt is number) &&
+             isOptionalBool(data, 'archived') &&
+             isOptionalBool(data, 'chosen') &&
+             isOptionalBool(data, 'previewPending');
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidUser(request.resource.data);
@@ -140,6 +197,21 @@ service cloud.firestore {
 
     match /games/{gameId} {
       allow read, write: if isSignedIn();
+    }
+
+    // Vacation cabin options. Either partner can add and edit an option,
+    // but each partner may only change their own vote.
+    match /zimmers/{zimmerId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidZimmer(request.resource.data) &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.votes.keys().hasOnly([request.auth.uid]);
+      allow update: if isSignedIn() && isValidZimmer(request.resource.data) &&
+                       request.resource.data.createdBy == resource.data.createdBy &&
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       request.resource.data.votes.get(partnerOf(request.auth.uid), null) ==
+                         resource.data.votes.get(partnerOf(request.auth.uid), null);
+      allow delete: if isSignedIn();
     }
   }
 }

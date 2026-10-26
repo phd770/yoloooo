@@ -16,6 +16,9 @@ const Vault = lazy(() =>
 const Games = lazy(() =>
   import("./Games").then((module) => ({ default: module.Games })),
 );
+const Zimmers = lazy(() =>
+  import("./Zimmers").then((module) => ({ default: module.Zimmers })),
+);
 import { ErrorBoundary } from "./ErrorBoundary";
 
 type DashboardTab = AppTab;
@@ -27,7 +30,7 @@ export function Dashboard() {
         return "chat";
       const savedTab = localStorage.getItem("dateapp_active_tab");
       return savedTab &&
-        ["home", "inbox", "settings", "chat", "vault", "games"].includes(
+        ["home", "inbox", "settings", "chat", "vault", "games", "zimmers"].includes(
           savedTab,
         )
         ? (savedTab as DashboardTab)
@@ -80,6 +83,7 @@ export function Dashboard() {
             {activeTab === "vault" && <Vault />}
             {activeTab === "settings" && <Settings />}
             {activeTab === "games" && <Games listRequest={gamesListRequest} />}
+            {activeTab === "zimmers" && <Zimmers />}
           </div>
         </Suspense>
       </ErrorBoundary>

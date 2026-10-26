@@ -3,6 +3,7 @@ import auth from "../api/auth";
 import health from "../api/health";
 import vaultAccess from "../api/vault-access";
 import push from "../api/push";
+import linkPreview from "../api/link-preview";
 
 /** Serve the same handlers locally and on Vercel. Never proxy PINs to production. */
 export function devApi(): Plugin {
@@ -20,7 +21,9 @@ export function devApi(): Plugin {
               ? vaultAccess
               : pathname === "/api/push"
                 ? push
-                : null;
+                : pathname === "/api/link-preview"
+                  ? linkPreview
+                  : null;
         if (!handler) return next();
         res.setHeader("Content-Type", "application/json; charset=utf-8");
         const response = {
