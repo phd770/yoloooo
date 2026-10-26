@@ -38,7 +38,7 @@ export function UserSelect() {
 
   return (
     <main className="welcome-screen" dir="rtl">
-      <div className={`welcome-art ${profile ? "welcome-art-small" : ""}`} role="img" aria-label="אם מחזיקה תינוק, לוגו my baby land">
+      <div className={`welcome-art ${profile ? "welcome-art-small" : ""}`} role="img" aria-label="ידיים אוחזות ברגלי תינוק, לוגו my baby land">
         <img src="/login-reference.jpeg" alt="" aria-hidden="true" />
       </div>
       <section className="welcome-sheet">

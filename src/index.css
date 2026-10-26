@@ -1499,7 +1499,10 @@ html {
 }
 .welcome-art {
   width: 100%;
-  aspect-ratio: 945 / 925;
+  /* login-reference.jpeg is already cropped to start at the logo header, so
+     this just picks how far down the photo the box shows before the
+     "הרשמה" button: header + hero + headline + button, no further. */
+  aspect-ratio: 1179 / 900;
   overflow: hidden;
   background: #a78d7c;
 }
@@ -1507,7 +1510,7 @@ html {
   display: block;
   width: 100%;
   height: auto;
-  margin-top: -13.23%;
+  margin-top: 0;
 }
 .welcome-sheet {
   position: relative;
@@ -1556,7 +1559,9 @@ html {
   color: #535e67;
   font-size: clamp(17px, 4.2vw, 22px);
 }
-.welcome-art-small { aspect-ratio: 945 / 650; }
+/* Stops above the headline text so the compact PIN-step header never
+   clips a line of type — just the logo and the hands/feet photo. */
+.welcome-art-small { aspect-ratio: 1179 / 400; }
 .welcome-pin-form { position: relative; text-align: right; }
 .welcome-back { position: absolute; top: 0; left: 0; min-width: 44px; min-height: 44px; color: #535e67; }
 .welcome-kicker { margin-bottom: 8px; color: #ed6b6e; font-size: 13px; }
